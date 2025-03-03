@@ -105,10 +105,8 @@ disable_agetty() {
 
 # Required for NetworkManager
 create_NM_link() {
-        if ${@bb.utils.contains("DISTRO_FEATURES", "ENABLE_NETWORKMANAGER", "true", "false", d)}; then
-            ln -sf /var/run/NetworkManager/no-stub-resolv.conf ${R}/etc/resolv.dnsmasq
-            ln -sf /var/run/NetworkManager/resolv.conf ${R}/etc/resolv.conf
-        fi
+    ln -sf /var/run/NetworkManager/no-stub-resolv.conf ${R}/etc/resolv.dnsmasq
+    ln -sf /var/run/NetworkManager/resolv.conf ${R}/etc/resolv.conf
 }
 
 remove_hvec_asset(){
