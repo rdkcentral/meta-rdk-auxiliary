@@ -6,6 +6,7 @@ ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("DISTRO_FEATURES", "prod-var
 ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("DISTRO_FEATURES", "prodlog-variant", "prodlog_image_hook; ", "", d)}'
 ROOTFS_POSTPROCESS_COMMAND += " common_image_hook; "
 ROOTFS_POSTPROCESS_COMMAND += " create_NM_link; "
+ROOTFS_POSTPROCESS_COMMAND += " modify_NM; "
 
 R = "${IMAGE_ROOTFS}"
 
@@ -71,6 +72,13 @@ python update_noshadow() {
             sys.stdout.write(line)
 }
 
+# Required for NetworkManager
+modify_NM() {
+    rm ${IMAGE_ROOTFS}/etc/NetworkManager/dispatcher.d/nlmon-script.sh
+    sed -i "s/dns=dnsmasq//g" ${IMAGE_ROOTFS}/etc/NetworkManager/NetworkManager.conf
+    sed -i '16i ExecStartPost=/bin/sh /lib/rdk/NM_restartConn.sh' ${IMAGE_ROOTFS}/lib/systemd/system/NetworkManager.service
+}
+
 cleanup_sshkeys() {
      if [ -d ${R}/etc/dropbear/dev-keys ];then
           rm -rf ${R}/etc/dropbear/dev-keys
@@ -103,8 +111,6 @@ disable_agetty() {
 
 # Required for NetworkManager
 create_NM_link() {
-        if ${@bb.utils.contains("DISTRO_FEATURES", "ENABLE_NETWORKMANAGER", "true", "false", d)}; then
-            ln -sf /var/run/NetworkManager/no-stub-resolv.conf ${R}/etc/resolv.dnsmasq
-            ln -sf /var/run/NetworkManager/resolv.conf ${R}/etc/resolv.conf
-        fi
+    ln -sf /var/run/NetworkManager/no-stub-resolv.conf ${R}/etc/resolv.dnsmasq
+    ln -sf /var/run/NetworkManager/resolv.conf ${R}/etc/resolv.conf
 }
