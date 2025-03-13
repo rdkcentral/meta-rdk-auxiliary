@@ -75,7 +75,7 @@ python update_noshadow() {
 # Required for NetworkManager
 modify_NM() {
     if [ -f "${R}/etc/NetworkManager/dispatcher.d/nlmon-script.sh" ]; then
-        rm ${IMAGE_ROOTFS}/etc/NetworkManager/dispatcher.d/nlmon-script.sh
+        rm ${R}/etc/NetworkManager/dispatcher.d/nlmon-script.sh
         sed -i "s/dns=dnsmasq//g" ${IMAGE_ROOTFS}/etc/NetworkManager/NetworkManager.conf
         sed -i '16i ExecStartPost=/bin/sh /lib/rdk/NM_restartConn.sh' ${IMAGE_ROOTFS}/lib/systemd/system/NetworkManager.service
     fi
