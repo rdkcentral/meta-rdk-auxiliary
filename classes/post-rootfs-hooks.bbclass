@@ -75,8 +75,10 @@ python update_noshadow() {
 # Required for NetworkManager
 modify_NM() {
     if [ -f "${R}/etc/NetworkManager/dispatcher.d/nlmon-script.sh" ]; then
-        rm ${R}/etc/NetworkManager/dispatcher.d/nlmon-script.sh
-        sed -i "s/dns=dnsmasq//g" ${IMAGE_ROOTFS}/etc/NetworkManager/NetworkManager.conf
+        rm -f ${R}/etc/NetworkManager/dispatcher.d/nlmon-script.sh
+    fi
+    if [ -f "${R}/etc/NetworkManager/NetworkManager.conf" ]; then
+        sed -i "s/dns=dnsmasq//g" ${R}/etc/NetworkManager/NetworkManager.conf
     fi
 }
 
