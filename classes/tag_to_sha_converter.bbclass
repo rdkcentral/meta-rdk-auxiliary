@@ -73,7 +73,7 @@ python convert_tag_to_sha() {
                 bb.fatal("ERROR: The URL '%s' for %s uses an invalid git protocol: '%s'" % (url, pn, protocol))
             srcrev_var, srcrev =  get_srcrev(d, name) or (None, None)
             # Check if the srcrev is a tag
-            if srcrev:
+            if srcrev and srcrev != "AUTOINC":
                 # Anything that doesn't look like a sha256 checksum/revision is considered as tag
                 if len(srcrev) != 40 or (False in [c in "abcdef0123456789" for c in srcrev.lower()]):
                    if user:
