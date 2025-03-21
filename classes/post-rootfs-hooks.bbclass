@@ -117,7 +117,10 @@ remove_hvec_asset(){
 
 # Required for NetworkManager
 modify_NM() {
-        rm ${IMAGE_ROOTFS}/etc/NetworkManager/dispatcher.d/nlmon-script.sh
-        sed -i "s/dns=dnsmasq//g" ${IMAGE_ROOTFS}/etc/NetworkManager/NetworkManager.conf
-        sed -i '16i ExecStartPost=/bin/sh /lib/rdk/NM_restartConn.sh' ${IMAGE_ROOTFS}/lib/systemd/system/NetworkManager.service
+    if [ -f "${R}/etc/NetworkManager/dispatcher.d/nlmon-script.sh" ]; then
+        rm -f ${R}/etc/NetworkManager/dispatcher.d/nlmon-script.sh
+    fi
+    if [ -f "${R}/etc/NetworkManager/NetworkManager.conf" ]; then
+        sed -i "s/dns=dnsmasq//g" ${R}/etc/NetworkManager/NetworkManager.conf
+    fi
 }
