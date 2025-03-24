@@ -30,6 +30,7 @@ def get_commit_sha_for_tag(url, tag_name):
         for n in ["refs/tags/" + tag_name + "^{}", "refs/tags/" + tag_name]:
             for line in output.split('\n'):
                 if line:
+                    bb.warn("[TEST] line - %s" %line)
                     sha, ref = line.split('\t')
                     if ref == n:
                         return sha
