@@ -58,7 +58,7 @@ python create_version_file() {
                 fw.write(f"{layer_name}={version}\n")
         fw.write('YOCTO_VERSION={0}\n'.format(distro_codename))
         fw.write('SDK_VERSION={0}\n'.format(sdk_version))
-        fw.write('VERSION=99.99.15.07\n')
+        fw.write('VERSION=1.1.1.1\n')
         fw.write('FW_CLASS=rdke\n')
         fw.write('JENKINS_JOB={0}\n'.format(job_name))
         fw.write('JENKINS_BUILD_NUMBER={0}\n'.format(build_number))
