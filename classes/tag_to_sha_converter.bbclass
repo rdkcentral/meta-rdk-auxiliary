@@ -70,8 +70,8 @@ def get_srcrev(d, name):
             srcrev_dct[att] = srcrev
     return srcrev_dct
 
-
-python convert_tag_to_sha() {
+# Convert tag to sha in SRCREV
+python () {
     pn = d.getVar('PN')
     srcuri = d.getVar('SRC_URI')
     urls = srcuri.split()
@@ -108,7 +108,3 @@ python convert_tag_to_sha() {
                                 d.setVar(srcrev_var, tag_srcrev)
                                 tag_srcrev_dct[tag_name] = tag_srcrev
 }
-
-
-addhandler convert_tag_to_sha
-convert_tag_to_sha[eventmask] = "bb.event.RecipeParsed"
