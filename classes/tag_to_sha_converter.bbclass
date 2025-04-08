@@ -47,21 +47,31 @@ def get_srcrev(d, name):
     pn = d.getVar('PN')
     attempts = []
     if name != '' and pn:
-        attempts.append("SRCREV_%s:pn-%s" % (name, pn))
+        attempts.append('SRCREV_%s:pn-%s' % (name, pn))
     if name != '':
-        attempts.append("SRCREV_%s" % name)
+        attempts.append('SRCREV_%s' % name)
     if pn:
-        attempts.append("SRCREV:pn-%s" % pn)
-    attempts.append("SRCREV")
+        attempts.append('SRCREV:pn-%s' % pn)
+    attempts.append('SRCREV')
 
+    attempts_override =[]
+    overrides = d.getVar('OVERRIDES').split(":") or []
+    overrides = list(set(overrides))
+    overrides = [x for x in overrides if x.strip()]
+    for att in attempts:
+        for var in overrides:
+            attempts_override.append('%s:%s' %(att, var))
+    attempts.extend(attempts_override)
+    attempts = list(set(attempts))
+    srcrev_dct = {}
     for att in attempts:
         srcrev = d.getVar(att)
         if srcrev and srcrev != "INVALID":
-            return att, srcrev
-    return None
+            srcrev_dct[att] = srcrev
+    return srcrev_dct
 
-
-python convert_tag_to_sha() {
+# Convert tag to sha in SRCREV
+python () {
     pn = d.getVar('PN')
     srcuri = d.getVar('SRC_URI')
     urls = srcuri.split()
@@ -75,23 +85,26 @@ python convert_tag_to_sha() {
             protocol = get_protocol(parm)
             if not protocol in ["git", "http", "https", "ssh"]:
                 bb.fatal("ERROR: The URL '%s' for %s uses an invalid git protocol: '%s'" % (url, pn, protocol))
-            srcrev_var, srcrev =  get_srcrev(d, name) or (None, None)
-            # Check if the srcrev is a tag
-            if srcrev and srcrev != "AUTOINC":
-                # Anything that doesn't look like a sha256 checksum/revision is considered as tag
-                if len(srcrev) != 40 or (False in [c in "abcdef0123456789" for c in srcrev.lower()]):
-                   if user:
-                       username = user + '@'
-                   else:
-                       username = ""
-                   tag_name = srcrev
-                   repo_url = "%s://%s%s%s" % (protocol, username, host, path)
-                   tag_srcrev = get_commit_sha_for_tag(repo_url, tag_name)
-                   if tag_srcrev:
-                       bb.note("Updating tag name '%s' to commit SHA '%s' in SRCREV for %s" %(tag_name, tag_srcrev, pn))
-                       d.setVar(srcrev_var, tag_srcrev)
+            srcrevs =  get_srcrev(d, name)
+            tag_srcrev_dct = {}
+            for srcrev_var, srcrev in sorted(srcrevs.items()):
+                # Check if the srcrev is a tag
+                if srcrev and srcrev != "AUTOINC":
+                    # Anything that doesn't look like a sha256 checksum/revision is considered as tag
+                    if len(srcrev) != 40 or (False in [c in "abcdef0123456789" for c in srcrev.lower()]):
+                        tag_name = srcrev
+                        if tag_name in tag_srcrev_dct:
+                            bb.note("Updating tag name from cache '%s' to commit SHA '%s' in SRCREV for %s with %s" %(tag_name, tag_srcrev_dct[tag_name], pn, srcrev_var))
+                            d.setVar(srcrev_var, tag_srcrev_dct[tag_name])
+                        else:
+                            if user:
+                                username = user + '@'
+                            else:
+                                username = ""
+                            repo_url = "%s://%s%s%s" % (protocol, username, host, path)
+                            tag_srcrev = get_commit_sha_for_tag(repo_url, tag_name)
+                            if tag_srcrev:
+                                bb.note("Updating tag name '%s' to commit SHA '%s' in SRCREV for %s with %s" %(tag_name, tag_srcrev, pn, srcrev_var))
+                                d.setVar(srcrev_var, tag_srcrev)
+                                tag_srcrev_dct[tag_name] = tag_srcrev
 }
-
-
-addhandler convert_tag_to_sha
-convert_tag_to_sha[eventmask] = "bb.event.RecipeParsed"
