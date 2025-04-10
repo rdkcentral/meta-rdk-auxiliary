@@ -1,3 +1,4 @@
+inherit systemd
 pkg_postinst:${PN} () {
 BIND_CONFIGURATIONS="${@d.getVar('BIND_CONFIGURATIONS', True) or ""}"
 echo "${BIND_CONFIGURATIONS}"
