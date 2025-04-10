@@ -22,6 +22,6 @@ echo ${line}
         $D${sysconfdir}/volatile-binds.service.in > $D${systemd_unitdir}/system/${service}
     
 done
-SYSTEMD_SERVICE:${PN} += "${systemd_unitdir}/system/*.service"
-FILES:${PN} += "${systemd_unitdir}/system/*.service"
+#SYSTEMD_SERVICE:${PN} += "${systemd_unitdir}/system/*.service"
+#FILES:${PN} += "${systemd_unitdir}/system/*.service"
 }
