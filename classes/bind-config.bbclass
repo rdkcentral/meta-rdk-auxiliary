@@ -21,7 +21,7 @@ echo ${line}
 
     sed -e "s#@what@#${what}#g; s#@where@#${where}#g" \
         -e "s#@whatparent@#${what%/*}#g; s#@whereparent@#${where%/*}#g" \
-        volatile-binds.service.in > $D${systemd_unitdir}/system/${service}
+        ${D}${sysconfdir}/volatile-binds.service.in > $D${systemd_unitdir}/system/${service}
 
 done
 
@@ -29,5 +29,4 @@ echo "DBG:${services}"
 
 SYSTEMD_SERVICE:${PN} += "${services}"
 FILES:${PN} += "${services}"
-
 }
