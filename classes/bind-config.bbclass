@@ -8,7 +8,7 @@ VOLATILE_BINDS="${@d.getVar('VOLATILE_BINDS', True) or ""}"
 echo "${VOLATILE_BINDS}"
 
 SERVICES=""
-printf '%b\n' "${VOLATILE_BINDS}" | while IFS= read -r line
+printf "${VOLATILE_BINDS}" | while IFS= read -r line
 do
     [ -z "$line" ] && continue
 echo ${line}
