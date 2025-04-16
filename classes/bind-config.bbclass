@@ -1,4 +1,4 @@
-pkg_postinst:${PN}_append () {
+pkg_postinst:${PN}:append () {
 VOLATILE_BINDS="${@d.getVar('VOLATILE_BINDS', True) or ""}"
 echo "${VOLATILE_BINDS}"
 
