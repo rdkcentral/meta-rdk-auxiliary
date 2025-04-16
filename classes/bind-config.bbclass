@@ -1,14 +1,9 @@
-inherit systemd
-
-VOLATILE_BINDS[type]= "list"
-VOLATILE_BINDS[separator]= "\n"
-
 pkg_postinst:${PN} () {
 VOLATILE_BINDS="${@d.getVar('VOLATILE_BINDS', True) or ""}"
 echo "${VOLATILE_BINDS}"
 
 SERVICES=""
-printf "${VOLATILE_BINDS}" | while IFS= read -r line
+echo "${VOLATILE_BINDS}" | while IFS= read -r line
 do
     [ -z "$line" ] && continue
 echo ${line}
@@ -30,6 +25,11 @@ echo ${line}
     SERVICES="$SERVICES $service"
     echo "Creating service file ${service}"
 
+SERVICE_PATH="$D${systemd_unitdir}/system/${service}"
+if [ -f "$SERVICE_PATH" ]; then
+    echo "Service ${service} already exists. Skipping creation."
+    continue
+fi
         cat << EOF > "$D${systemd_unitdir}/system/${service}"
 [Unit]
 Description=Bind mount volatile $where
@@ -52,20 +52,63 @@ ExecStop=/bin/umount $where
 WantedBy=local-fs.target
 EOF
 
+echo "inside loop:${SERVICES}"
 
-echo "$SERVICES"
+if command -v systemctl >/dev/null 2>&1; then
+                OPTS=""
+                echo "systemctl command found"
+        if [ -n "$D" ]; then
+                OPTS="--root=$D"
+        fi
+        echo "Enabling the services in bind-config"
+        systemctl ${OPTS} enable "$service"
+else
+        mkdir -p "$D/etc/systemd/system/local-fs.target.wants"
+        ln -sf "/lib/systemd/system/${service}" "$D/etc/systemd/system/local-fs.target.wants/${service}"
 
-#ls "$D/etc/systemd/system/local-fs.target.wants"
+fi
 
-#ln -sf "/lib/systemd/system/${service}" "$D/etc/systemd/system/local-fs.target.wants/${service}"
-
-mkdir -p "$D/etc/systemd/system/local-fs.target.wants"
-ln -sf "/lib/systemd/system/${service}" "$D/etc/systemd/system/local-fs.target.wants/${service}"
-
-#systemctl enable "$D${systemd_unitdir}/system/${service}" - Needs runtime target
-#    SYSTEMD_SERVICE:${PN} += "${service}" - systemd inherit
-#   FILES:${PN} += "${service}"
+#systemctl enable "$D${systemd_unitdir}/system/${service}" - enable failed
+ #    SYSTEMD_SERVICE:${PN} += "${service}" - inside postinst : systemd not available. outside postinst service not available
+ #   FILES:${PN} += "${service}"
 done
 
+echo "list of services: ${SERVICES}"
+echo "CREATING mount-copybind"
+cat << EOF > "$D${base_sbindir}/mount-copybind"
+#!/bin/sh
+#
+# Perform a bind mount, copying existing files as we do so to ensure the
+# overlaid path has the necessary content.
 
+if [ $# -lt 2 ]; then
+    echo >&2 "Usage: $0 spec mountpoint [OPTIONS]"
+    exit 1
+fi
+
+spec=$1
+mountpoint=$2
+
+if [ $# -gt 2 ]; then
+    options=$3
+else
+    options=
+fi
+
+[ -n "$options" ] && options=",$options"
+
+mkdir -p "${spec%/*}"
+if [ -d "$mountpoint" ]; then
+    if [ ! -d "$spec" ]; then
+        mkdir "$spec"
+        cp -pPR "$mountpoint"/. "$spec/"
+    fi
+elif [ -f "$mountpoint" ]; then
+    if [ ! -f "$spec" ]; then
+        cp -pP "$mountpoint" "$spec"
+    fi
+fi
+
+mount -o "bind$options" "$spec" "$mountpoint"
+EOF
 }
