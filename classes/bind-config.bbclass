@@ -1,3 +1,7 @@
+VOLATILE_BINDS ?= "\
+    /var/volatile/lib /var/lib\n\
+"
+
 pkg_postinst:${PN}:append () {
 SERVICES=""
 printf "${VOLATILE_BINDS}" | while IFS= read -r line
