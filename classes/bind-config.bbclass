@@ -75,7 +75,7 @@ done
 
 echo "list of services: ${SERVICES}"
 echo "CREATING mount-copybind"
-if [ -f "$D${base_sbindir}/mount-copybind" ]
+if [ -f "$D${base_sbindir}/mount-copybind" ]; then
     echo "mount-copybind already exists. Skipping creation."
     exit 0
 fi
