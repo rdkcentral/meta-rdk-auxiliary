@@ -73,6 +73,10 @@ else
         echo "systemctl Not Found. Enabling the service Manually"
         mkdir -p "$D/etc/systemd/system/local-fs.target.wants"
         ln -sf "/lib/systemd/system/${service}" "$D/etc/systemd/system/local-fs.target.wants/${service}"
+        SERVICE_LINK="$D/etc/systemd/system/local-fs.target.wants/${service}"
+        if [ ! -L "$SERVICE_LINK" ]; then
+            echo "VOLATILE_BINDS:Symlink Creation Failed"
+        fi
 fi
 
 #systemctl enable "$D${systemd_unitdir}/system/${service}" - enable failed
