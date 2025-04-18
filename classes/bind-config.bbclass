@@ -62,10 +62,17 @@ if command -v systemctl >/dev/null 2>&1; then
         fi
         echo "Enabling the services in bind-config"
         systemctl ${OPTS} enable "$service"
+        SERVICE_LINK="$D/etc/systemd/system/local-fs.target.wants/${service}"
+        if [ ! -e "$SERVICE_LINK" ]; then
+            echo "Symlink not created by systemctl, creating manually"
+            mkdir -p "$D/etc/systemd/system/local-fs.target.wants"
+            ln -sf "/lib/systemd/system/${service}" "$D/etc/systemd/system/local-fs.target.wants/${service}"
+        fi
+        echo "SYMLink created by systemctl"
 else
+        echo "systemctl Not Found. Enabling the service Manually"
         mkdir -p "$D/etc/systemd/system/local-fs.target.wants"
         ln -sf "/lib/systemd/system/${service}" "$D/etc/systemd/system/local-fs.target.wants/${service}"
-
 fi
 
 #systemctl enable "$D${systemd_unitdir}/system/${service}" - enable failed
