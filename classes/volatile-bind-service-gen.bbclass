@@ -52,6 +52,28 @@ ExecStop=/bin/umount $where
 WantedBy=local-fs.target
 EOF
 
+cat << EOF > "$D${systemd_unitdir}/system/var-lib.mount"
+[Unit]
+Description=Bind mount volatile /var/lib
+Documentation=man:hier(7)
+Documentation=http://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
+RequiresMountsFor=/opt /var
+ConditionPathIsReadWrite=/opt
+ConditionPathExists=/var/lib
+DefaultDependencies=no
+After=nvram.service
+Requires=nvram.service
+Conflicts=umount.target
+
+[Mount]
+What=/opt
+Where=/var/lib
+Options=bind
+
+[Install]
+WantedBy=local-fs.target
+EOF
+
 echo "inside loop:${SERVICES}"
 
 if command -v systemctl >/dev/null 2>&1; then
@@ -62,6 +84,7 @@ if command -v systemctl >/dev/null 2>&1; then
         fi
         echo "Enabling the services in bind-config"
         systemctl ${OPTS} enable "$service"
+        systemctl ${OPTS} enable var-lib.mount
         SERVICE_LINK="$D/etc/systemd/system/local-fs.target.wants/${service}"
         if [ ! -L "$SERVICE_LINK" ]; then
             echo "Symlink not created by systemctl, creating manually"
