@@ -8,29 +8,19 @@ printf "${VOLATILE_BINDS}" | while IFS= read -r line
 do
     [ -z "$line" ] && continue
     what=$(echo "${line}" | awk '{print $1}')
-    echo "DBG:WHAT:$what"
-
     whatparent=${what%/*}
-    echo "WHAT PARENT:$whatparent"
-
     where=$(echo "${line}" | awk '{print $2}')
-    echo "DBG:WHERE:$where"
-
     whereparent=${where%/*}
-    echo "WHERE PARENT:$whereparent"
-
     service=$(echo "${what}" | sed 's|^/||; s|/|-|g').service
-    echo "DBG:SERVICE:$service"
-
     SERVICES="$SERVICES $service"
-    echo "Creating service file ${service}"
 
-SERVICE_PATH="$D${systemd_unitdir}/system/${service}"
-if [ -f "$SERVICE_PATH" ]; then
-    echo "Service ${service} already exists. Skipping creation."
-    continue
-fi
-        cat << EOF > "$D${systemd_unitdir}/system/${service}"
+    echo "BIND-GEN: Creating service :${service}"
+    SERVICE_PATH="$D${systemd_unitdir}/system/${service}"
+    if [ -f "$SERVICE_PATH" ]; then
+       echo "BIND-GEN:Service ${service} already exists. Skipping creation."
+       continue
+    fi
+cat << EOF > "$D${systemd_unitdir}/system/${service}"
 [Unit]
 Description=Bind mount volatile $where
 DefaultDependencies=false
@@ -74,15 +64,13 @@ Options=bind
 WantedBy=local-fs.target
 EOF
 
-echo "inside loop:${SERVICES}"
-
 if command -v systemctl >/dev/null 2>&1; then
                 OPTS=""
                 echo "systemctl command found"
         if [ -n "$D" ]; then
                 OPTS="--root=$D"
         fi
-        echo "Enabling the services in bind-config"
+       
         systemctl ${OPTS} enable "$service"
         systemctl ${OPTS} enable var-lib.mount
         SERVICE_LINK="$D/etc/systemd/system/local-fs.target.wants/${service}"
@@ -91,26 +79,19 @@ if command -v systemctl >/dev/null 2>&1; then
             mkdir -p "$D/etc/systemd/system/local-fs.target.wants"
             ln -sf "/lib/systemd/system/${service}" "$D/etc/systemd/system/local-fs.target.wants/${service}"
         fi
-        echo "SYMLink created by systemctl"
 else
-        echo "systemctl Not Found. Enabling the service Manually"
+        echo "BIND-GEN:systemctl Not Found. Enabling the service Manually"
         mkdir -p "$D/etc/systemd/system/local-fs.target.wants"
         ln -sf "/lib/systemd/system/${service}" "$D/etc/systemd/system/local-fs.target.wants/${service}"
         SERVICE_LINK="$D/etc/systemd/system/local-fs.target.wants/${service}"
         if [ ! -L "$SERVICE_LINK" ]; then
-            echo "VOLATILE_BINDS:Symlink Creation Failed"
+            echo "BIND-GEN:Symlink Creation Failed"
         fi
 fi
-
-#systemctl enable "$D${systemd_unitdir}/system/${service}" - enable failed
- #    SYSTEMD_SERVICE:${PN} += "${service}" - inside postinst : systemd not available. outside postinst service not available
- #   FILES:${PN} += "${service}"
 done
 
-echo "list of services: ${SERVICES}"
-echo "CREATING mount-copybind"
 if [ -f "$D${base_sbindir}/mount-copybind" ]; then
-    echo "mount-copybind already exists. Skipping creation."
+    echo "BIND-GEN:mount-copybind already exists. Skipping creation."
     exit 0
 fi
 cat << EOF > "$D${base_sbindir}/mount-copybind"
