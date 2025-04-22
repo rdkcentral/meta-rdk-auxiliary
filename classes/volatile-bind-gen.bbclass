@@ -20,7 +20,7 @@ do
        echo "[VOLATILE-BIND] : Service ${service} already exists. Skipping creation."
        continue
     fi
-    #Creating bind services
+    #Generate systemd service for the bind configurations
     cat << EOF > "$D${systemd_unitdir}/system/${service}"
     [Unit]
     Description=Bind mount volatile $where
@@ -67,6 +67,7 @@ do
     EOF
 
     #Enabling the bind services
+    mkdir -p "$D/etc/systemd/system/local-fs.target.wants"
     if command -v systemctl >/dev/null 2>&1; then
         OPTS=""
         echo "[VOLATILE-BIND] : systemctl command found"
@@ -76,21 +77,19 @@ do
        
         systemctl ${OPTS} enable "$service"
         systemctl ${OPTS} enable var-lib.mount
+        mkdir -p "$D/etc/systemd/system/local-fs.target.wants"
         SERVICE_LINK="$D/etc/systemd/system/local-fs.target.wants/${service}"
         if [ ! -L "$SERVICE_LINK" ]; then
             echo "[VOLATILE-BIND] : Symlink not created by systemctl, creating manually"
-            mkdir -p "$D/etc/systemd/system/local-fs.target.wants"
             ln -sf "/lib/systemd/system/${service}" "$D/etc/systemd/system/local-fs.target.wants/${service}"
         fi
         VARLIB_LINK="$D/etc/systemd/system/local-fs.target.wants/var-lib.mount"
         if [ ! -L "$VARLIB_LINK" ]; then
             echo "[VOLATILE-BIND] : Symlink not created by systemctl for var-lib.mount, creating manually"
-            mkdir -p "$D/etc/systemd/system/local-fs.target.wants"
-            ln -sf "/lib/systemd/system/var-lib.mount" "$VARLIB_LINK"
+            ln -sf "/lib/systemd/system/var-lib.mount" "$D/etc/systemd/system/local-fs.target.wants/var-lib.mount"
         fi
     else
         echo "[VOLATILE-BIND] : systemctl Not Found. Enabling the service Manually"
-        mkdir -p "$D/etc/systemd/system/local-fs.target.wants"
         ln -sf "/lib/systemd/system/${service}" "$D/etc/systemd/system/local-fs.target.wants/${service}"
         ln -sf "/lib/systemd/system/var-lib.mount" "$D/etc/systemd/system/local-fs.target.wants/var-lib.mount"
         
