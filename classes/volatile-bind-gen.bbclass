@@ -79,13 +79,25 @@ do
             mkdir -p "$D/etc/systemd/system/local-fs.target.wants"
             ln -sf "/lib/systemd/system/${service}" "$D/etc/systemd/system/local-fs.target.wants/${service}"
         fi
+        VARLIB_LINK="$D/etc/systemd/system/local-fs.target.wants/var-lib.mount"
+        if [ ! -L "$VARLIB_LINK" ]; then
+            echo "[VOLATILE-BIND] : Symlink not created by systemctl for var-lib.mount, creating manually"
+            mkdir -p "$D/etc/systemd/system/local-fs.target.wants"
+            ln -sf "/lib/systemd/system/var-lib.mount" "$VARLIB_LINK"
+        fi
     else
         echo "[VOLATILE-BIND] : systemctl Not Found. Enabling the service Manually"
         mkdir -p "$D/etc/systemd/system/local-fs.target.wants"
         ln -sf "/lib/systemd/system/${service}" "$D/etc/systemd/system/local-fs.target.wants/${service}"
+        ln -sf "/lib/systemd/system/var-lib.mount" "$D/etc/systemd/system/local-fs.target.wants/var-lib.mount"
+        
         SERVICE_LINK="$D/etc/systemd/system/local-fs.target.wants/${service}"
         if [ ! -L "$SERVICE_LINK" ]; then
             echo "[VOLATILE-BIND] : Symlink Creation Failed for ${service}"
+        fi
+        VARLIB_LINK="$D/etc/systemd/system/local-fs.target.wants/var-lib.mount"
+        if [ ! -L "$VARLIB_LINK" ]; then
+            echo "[VOLATILE-BIND] : Symlink Creation Failed for var-lib.mount"
         fi
     fi
 done
