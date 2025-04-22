@@ -108,7 +108,7 @@ if [ -f "$D${base_sbindir}/mount-copybind" ]; then
     echo "[VOLATILE-BIND] : mount-copybind already exists. Skipping creation."
     exit 0
 fi
-cat << EOF > "$D${base_sbindir}/mount-copybind"
+cat << 'EOF' > "$D${base_sbindir}/mount-copybind"
 #!/bin/sh
 #
 # Perform a bind mount, copying existing files as we do so to ensure the
