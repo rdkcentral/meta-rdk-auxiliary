@@ -20,6 +20,7 @@ do
        echo "[VOLATILE-BIND] : Service ${service} already exists. Skipping creation."
        continue
     fi
+    #Creating bind services
     cat << EOF > "$D${systemd_unitdir}/system/${service}"
     [Unit]
     Description=Bind mount volatile $where
@@ -42,6 +43,7 @@ do
     WantedBy=local-fs.target
     EOF
 
+    #Creating Var-lib.mount
     cat << EOF > "$D${systemd_unitdir}/system/var-lib.mount"
     [Unit]
     Description=Bind mount volatile /var/lib
@@ -64,6 +66,7 @@ do
     WantedBy=local-fs.target
     EOF
 
+    #Enabling the bind services
     if command -v systemctl >/dev/null 2>&1; then
         OPTS=""
         echo "[VOLATILE-BIND] : systemctl command found"
@@ -102,6 +105,7 @@ do
     fi
 done
 
+#Creating mount-copybind
 if [ -f "$D${base_sbindir}/mount-copybind" ]; then
     echo "[VOLATILE-BIND] : mount-copybind already exists. Skipping creation."
     exit 0
