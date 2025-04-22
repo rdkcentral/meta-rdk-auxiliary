@@ -14,10 +14,10 @@ do
     service=$(echo "${what}" | sed 's|^/||; s|/|-|g').service
     SERVICES="$SERVICES $service"
 
-    echo "BIND-GEN: Creating service :${service}"
+    echo "[VOLATILE-BIND] : Creating service :${service}"
     SERVICE_PATH="$D${systemd_unitdir}/system/${service}"
     if [ -f "$SERVICE_PATH" ]; then
-       echo "BIND-GEN:Service ${service} already exists. Skipping creation."
+       echo "[VOLATILE-BIND] : Service ${service} already exists. Skipping creation."
        continue
     fi
 cat << EOF > "$D${systemd_unitdir}/system/${service}"
@@ -66,7 +66,7 @@ EOF
 
 if command -v systemctl >/dev/null 2>&1; then
                 OPTS=""
-                echo "systemctl command found"
+                echo "[VOLATILE-BIND] : systemctl command found"
         if [ -n "$D" ]; then
                 OPTS="--root=$D"
         fi
@@ -75,23 +75,23 @@ if command -v systemctl >/dev/null 2>&1; then
         systemctl ${OPTS} enable var-lib.mount
         SERVICE_LINK="$D/etc/systemd/system/local-fs.target.wants/${service}"
         if [ ! -L "$SERVICE_LINK" ]; then
-            echo "Symlink not created by systemctl, creating manually"
+            echo "[VOLATILE-BIND] : Symlink not created by systemctl, creating manually"
             mkdir -p "$D/etc/systemd/system/local-fs.target.wants"
             ln -sf "/lib/systemd/system/${service}" "$D/etc/systemd/system/local-fs.target.wants/${service}"
         fi
 else
-        echo "BIND-GEN:systemctl Not Found. Enabling the service Manually"
+        echo "[VOLATILE-BIND] : systemctl Not Found. Enabling the service Manually"
         mkdir -p "$D/etc/systemd/system/local-fs.target.wants"
         ln -sf "/lib/systemd/system/${service}" "$D/etc/systemd/system/local-fs.target.wants/${service}"
         SERVICE_LINK="$D/etc/systemd/system/local-fs.target.wants/${service}"
         if [ ! -L "$SERVICE_LINK" ]; then
-            echo "BIND-GEN:Symlink Creation Failed"
+            echo "[VOLATILE-BIND] : Symlink Creation Failed for ${service}"
         fi
 fi
 done
 
 if [ -f "$D${base_sbindir}/mount-copybind" ]; then
-    echo "BIND-GEN:mount-copybind already exists. Skipping creation."
+    echo "[VOLATILE-BIND] : mount-copybind already exists. Skipping creation."
     exit 0
 fi
 cat << EOF > "$D${base_sbindir}/mount-copybind"
@@ -130,4 +130,6 @@ fi
 
 mount -o "bind$options" "$spec" "$mountpoint"
 EOF
+
+chmod +x "$D${base_sbindir}/mount-copybind"
 }
