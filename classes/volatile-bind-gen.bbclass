@@ -144,5 +144,5 @@ fi
 
 mount -o "bind$options" "$spec" "$mountpoint"
 EOF
-
+chmod 755 "$D${base_sbindir}/mount-copybind"
 }
