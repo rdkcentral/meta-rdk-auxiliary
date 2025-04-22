@@ -43,7 +43,7 @@ do
     WantedBy=local-fs.target
     EOF
 
-    #Creating Var-lib.mount
+    #Create mount for /var/lib
     cat << EOF > "$D${systemd_unitdir}/system/var-lib.mount"
     [Unit]
     Description=Bind mount volatile /var/lib
@@ -66,7 +66,7 @@ do
     WantedBy=local-fs.target
     EOF
 
-    #Enabling the bind services
+    #Enable the systemd service and ensure symlink exists
     mkdir -p "$D/etc/systemd/system/local-fs.target.wants"
     if command -v systemctl >/dev/null 2>&1; then
         OPTS=""
@@ -104,7 +104,7 @@ do
     fi
 done
 
-#Creating mount-copybind
+#Create mount-copybind
 if [ -f "$D${base_sbindir}/mount-copybind" ]; then
     echo "[VOLATILE-BIND] : mount-copybind already exists. Skipping creation."
     exit 0
