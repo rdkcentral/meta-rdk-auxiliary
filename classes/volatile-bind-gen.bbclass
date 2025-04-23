@@ -69,7 +69,7 @@ EOF
 #Enable the systemd service and ensure symlink exists
 if command -v systemctl >/dev/null 2>&1; then
                 OPTS=""
-                echo "[VOLATILE-BIND] : systemctl command found"
+                echo "[VOLATILE-BIND] : Enable the service ${service}"
         if [ -n "$D" ]; then
                 OPTS="--root=$D"
         fi
