@@ -103,7 +103,7 @@ else
 fi
 done
 
-#Create mount-copybind
+# mount-copybind from OpenEmbedded (MIT licensed)
 if [ -f "$D${base_sbindir}/mount-copybind" ]; then
     echo "[VOLATILE-BIND] : mount-copybind already exists. Skipping creation."
     exit 0
