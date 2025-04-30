@@ -20,3 +20,5 @@ This bbclass standardizes the management of volatile binds in a layered build sy
 - Inherit the bbclass in the desired recipe. 
 - Add the required configurations to `VOLATILE_BINDS` variable.
 
+## Note
+- This class can co-exist with volatile-binds recipe
