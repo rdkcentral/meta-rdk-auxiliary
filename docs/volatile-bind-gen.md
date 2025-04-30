@@ -8,8 +8,8 @@
 This bbclass standardizes the management of volatile binds in a layered build system, allowing configurations to be handled independently across different layers.
 
 ## Functionality of volatile-bind-gen.bbclass
-- Parses bind mount configurations from the `VOLATILE_BINDS` variable.
-- Dynamically creates systemd service unit files during rootfs generation
+- Parses bind configurations from the `VOLATILE_BINDS` variable.
+- Dynamically creates systemd service units during rootfs generation
 - Installs and enables each generated service.
 - Installs the `mount-copybind`.
 - If the service or `mount-copybind` already exists, a warning is logged and reinstallation is skipped.
@@ -17,6 +17,6 @@ This bbclass standardizes the management of volatile binds in a layered build sy
 
 
 ## Usage
-- Inherit the bbclass in the desired recipe. Ex: packagegroup-middleware-layer.bb
+- Inherit the bbclass in the desired recipe. 
 - Add the required configurations to `VOLATILE_BINDS` variable.
 
