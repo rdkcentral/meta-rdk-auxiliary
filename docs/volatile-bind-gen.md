@@ -17,5 +17,6 @@ This bbclass standardizes the management of volatile binds in a layered build sy
 
 
 ## Usage
-- Inherit the bbclass in the desired packagegroup. Ex: packagegroup-middleware-layer.bb
+- Inherit the bbclass in the desired recipe. Ex: packagegroup-middleware-layer.bb
+- Add the required configurations to `VOLATILE_BINDS` variable.
 
