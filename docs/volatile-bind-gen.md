@@ -1,4 +1,4 @@
-# Volatile-bind-gen.bbclass
+# volatile-bind-gen.bbclass
 
 ## Overview
  This bbclass dynamically generates and installs systemd service units, based on volatile bind configurations from `VOLATILE_BINDS` variable.
