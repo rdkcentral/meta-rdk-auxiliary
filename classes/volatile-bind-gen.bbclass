@@ -1,6 +1,6 @@
 #
-# Documentation: See README for this class at:
-# https://github.com/rdkcentral/meta-rdk-auxiliary/blob/topic/doc/docs/volatile-bind-gen.md
+# This bbclass generates the systemd unit dynamically based on bind configs
+# For Documentation: refer docs/volatile-bind-gen.md 
 #
 
 VOLATILE_BINDS ?= "\
