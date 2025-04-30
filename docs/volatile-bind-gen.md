@@ -23,6 +23,6 @@ It eliminates redundant builds and simplifies the integration of volatile bind c
 
 ## Usage
 
-1. Inherit the bbclass in the desired packagegroup. Ex: packagegroup-middleware-layer.bb
+- Inherit the bbclass in the desired packagegroup. Ex: packagegroup-middleware-layer.bb
    inherit volatile-bind-gen
-2. Remove the dependency of volatile-binds recipe from the corresponding project
+- Remove the dependency of volatile-binds recipe from the corresponding project
