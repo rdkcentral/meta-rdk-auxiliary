@@ -1,3 +1,6 @@
+#
+# Readme for this bbclass is in : https://github.com/rdkcentral/meta-rdk-auxiliary/blob/topic/doc/docs/volatile-bind-gen.md
+#
 VOLATILE_BINDS ?= "\
     /var/volatile/lib /var/lib\n\
 "
