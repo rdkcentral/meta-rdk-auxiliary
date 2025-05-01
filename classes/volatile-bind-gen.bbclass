@@ -1,3 +1,8 @@
+#
+# This bbclass generates the systemd unit dynamically based on bind configs
+# For Documentation: refer docs/volatile-bind-gen.md 
+#
+
 VOLATILE_BINDS ?= "\
     /var/volatile/lib /var/lib\n\
 "
