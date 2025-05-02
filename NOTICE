@@ -14,3 +14,6 @@ Licensed under the GPLv2 License
 
 Copyright The Yocto Project
 Licensed under the GPLv2 License
+
+Some material is derived from openembedded.org and is licensed in the same
+manner here (MIT for metadata; source code to match the associated recipe license).
