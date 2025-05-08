@@ -6,7 +6,7 @@
 
 ROOTFS_POSTPROCESS_COMMAND += ' update_device_properties; '
 
-# Function to merge properties with handling duplicates and sort alphabetically
+# Function to merge properties to handle duplicates
 merge_properties() {
     local source_file=$1
     local target_file=$2
@@ -16,14 +16,8 @@ merge_properties() {
     
     if [ -f "${source_file}" ]; then
         bbnote "Updating ${target_file} with ${source_label}"
-        
-        # Extract all comments from target file
         grep "^#" "${target_file}" > "${temp_merged}" 2>/dev/null || true
-        
-        # Add source file label as comment
         echo "# ${source_label}" >> "${temp_merged}"
-        
-        # Clear properties temporary file
         > "${props_file}"
         
         # Process target file properties first (base properties)
@@ -41,26 +35,21 @@ merge_properties() {
             fi
         done < "${target_file}"
         
-        # Process source file properties (overriding existing ones)
+        # Process source file properties
         while IFS= read -r line; do
-            # Skip comments and empty lines
             case "$line" in
                 \#*) continue ;;
                 "") continue ;;
             esac
             
-            # Extract variable name
             var_name=$(echo "$line" | cut -d= -f1)
             
             if [ -n "$var_name" ] && echo "$line" | grep -q "="; then
-                # Check if property already exists
                 if grep -q "^${var_name}=" "${props_file}"; then
-                    # Remove existing property
                     grep -v "^${var_name}=" "${props_file}" > "${props_file}.tmp"
                     mv "${props_file}.tmp" "${props_file}"
                     bbnote "Replacing existing property: ${var_name}"
                 fi
-                # Add new/updated property
                 echo "$line" >> "${props_file}"
             fi
         done < "${source_file}"
