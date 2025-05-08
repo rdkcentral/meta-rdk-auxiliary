@@ -12,7 +12,7 @@ merge_properties() {
     local target_file=$2
     local source_label=$3
     local temp_merged="${target_file}.merged"
-    local temp_sorted="${target_file}.sorted"
+    local props_file="${target_file}.props"
     
     if [ -f "${source_file}" ]; then
         bbnote "Updating ${target_file} with ${source_label}"
@@ -23,47 +23,45 @@ merge_properties() {
         # Add source file label as comment
         echo "# ${source_label}" >> "${temp_merged}"
         
-        # Create a temporary associative array (implemented as a file)
-        # to store the properties and their values
-        local props_file="${target_file}.props"
+        # Clear properties temporary file
         > "${props_file}"
         
         # Process target file properties first (base properties)
-        while IFS= read -r line || [ -n "$line" ]; do
+        while IFS= read -r line; do
             # Skip comments and empty lines
-            if [[ "$line" =~ ^[[:space:]]*# ]] || [[ -z "${line// }" ]]; then
-                continue
-            fi
+            case "$line" in
+                \#*) continue ;;
+                "") continue ;;
+            esac
             
             # Extract variable name and value
-            if [[ "$line" =~ ^([^=]*)=(.*) ]]; then
-                var_name="${BASH_REMATCH[1]}"
-                var_value="${BASH_REMATCH[2]}"
-                echo "${var_name}=${var_value}" >> "${props_file}"
+            var_name=$(echo "$line" | cut -d= -f1)
+            if [ -n "$var_name" ] && echo "$line" | grep -q "="; then
+                echo "$line" >> "${props_file}"
             fi
         done < "${target_file}"
         
         # Process source file properties (overriding existing ones)
-        while IFS= read -r line || [ -n "$line" ]; do
+        while IFS= read -r line; do
             # Skip comments and empty lines
-            if [[ "$line" =~ ^[[:space:]]*# ]] || [[ -z "${line// }" ]]; then
-                continue
-            fi
+            case "$line" in
+                \#*) continue ;;
+                "") continue ;;
+            esac
             
-            # Extract variable name and value
-            if [[ "$line" =~ ^([^=]*)=(.*) ]]; then
-                var_name="${BASH_REMATCH[1]}"
-                var_value="${BASH_REMATCH[2]}"
-                
+            # Extract variable name
+            var_name=$(echo "$line" | cut -d= -f1)
+            
+            if [ -n "$var_name" ] && echo "$line" | grep -q "="; then
                 # Check if property already exists
                 if grep -q "^${var_name}=" "${props_file}"; then
-                    # Replace the existing property
-                    sed -i "s|^${var_name}=.*|${var_name}=${var_value}|" "${props_file}"
+                    # Remove existing property
+                    grep -v "^${var_name}=" "${props_file}" > "${props_file}.tmp"
+                    mv "${props_file}.tmp" "${props_file}"
                     bbnote "Replacing existing property: ${var_name}"
-                else
-                    # Add new property
-                    echo "${var_name}=${var_value}" >> "${props_file}"
                 fi
+                # Add new/updated property
+                echo "$line" >> "${props_file}"
             fi
         done < "${source_file}"
         
@@ -74,10 +72,10 @@ merge_properties() {
         mv "${temp_merged}" "${target_file}"
         
         # Clean up temporary files
-        rm -f "${props_file}"
+        rm -f "${props_file}" "${props_file}.tmp" 2>/dev/null || true
         
         bbnote "Deleting ${source_label} from rootfs"
-        rm -rf "${source_file}"
+        rm -f "${source_file}"
     fi
 }
 
