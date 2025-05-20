@@ -43,7 +43,7 @@ update_device_properties() {
         # Check and replace AUTHORIZED_USB_DEVICES value only at the end in the final merged file
         if grep -q 'AUTHORIZED_USB_DEVICES="0bda:c82c"' "${IMAGE_ROOTFS}${GENERIC_DEV_PROP}"; then
             bbnote "Replacing AUTHORIZED_USB_DEVICES value in final properties file"
-            sed -i 's/AUTHORIZED_USB_DEVICES="0bda:c82b"/AUTHORIZED_USB_DEVICES="abcd:efgh"/' "${IMAGE_ROOTFS}${GENERIC_DEV_PROP}"
+            sed -i 's/AUTHORIZED_USB_DEVICES="0bda:c82c"/AUTHORIZED_USB_DEVICES="abcd:efgh"/' "${IMAGE_ROOTFS}${GENERIC_DEV_PROP}"
         fi
 
 
