@@ -118,10 +118,11 @@ remove_hvec_asset(){
 # Required for NetworkManager
 modify_NM() {
     if [ -f "${R}/etc/NetworkManager/dispatcher.d/nlmon-script.sh" ]; then
-        bbnote "[RDM] inside the loop"
+        bbnote "inside the loop"
         rm -f ${R}/etc/NetworkManager/dispatcher.d/nlmon-script.sh
     fi
     if [ -f "${R}/etc/NetworkManager/NetworkManager.conf" ]; then
+        bbnote "outside the loop"
         sed -i "s/dns=dnsmasq//g" ${R}/etc/NetworkManager/NetworkManager.conf
     fi
 }
