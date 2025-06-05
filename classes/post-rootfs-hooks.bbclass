@@ -43,8 +43,13 @@ update_build_type_property() {
 
 copy_dev_sshkeys() {
      if [ -d "${R}/etc/dropbear/vbn-keys" ]; then
-         install -m 0644 ${R}/etc/dropbear/vbn-keys/* ${R}/etc/dropbear
+         if ${@bb.utils.contains('DISTRO_FEATURES', 'dynamic_keying', 'true', 'false', d)}; then
+             install -m 0644 ${R}/etc/dropbear/vbn-keys/known_hosts ${R}/etc/dropbear/known_hosts
+         else
+             install -m 0644 ${R}/etc/dropbear/vbn-keys/* ${R}/etc/dropbear
+         fi
      fi
+
      if [ -f "${R}/etc/dropbear/id_dropbear" ]; then
          rm -rf ${R}/etc/dropbear/id_dropbear
      fi
