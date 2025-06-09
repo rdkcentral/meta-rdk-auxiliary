@@ -5,9 +5,7 @@ ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("DISTRO_FEATURES", "debug-va
 ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("DISTRO_FEATURES", "prod-variant", "prod_image_hook; ", "", d)}'
 ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("DISTRO_FEATURES", "prodlog-variant", "prodlog_image_hook; ", "", d)}'
 ROOTFS_POSTPROCESS_COMMAND += " common_image_hook; "
-ROOTFS_POSTPROCESS_COMMAND += " create_NM_link; "
 ROOTFS_POSTPROCESS_COMMAND += " remove_hvec_asset; "
-ROOTFS_POSTPROCESS_COMMAND += " modify_NM; "
 
 R = "${IMAGE_ROOTFS}"
 
