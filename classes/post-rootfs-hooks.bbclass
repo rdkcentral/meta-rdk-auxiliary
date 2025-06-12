@@ -1,12 +1,83 @@
 # Run post-rootfs hooks based on BUILD_VARIANT
 # TBD: Move these hooks to respective components
 
-
+ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("DISTRO_FEATURES", "prod-variant", "prod_image_hook; ", "", d)}'
+ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("DISTRO_FEATURES", "prodlog-variant", "prodlog_image_hook; ", "", d)}'
+ROOTFS_POSTPROCESS_COMMAND += " common_image_hook; "
 ROOTFS_POSTPROCESS_COMMAND += " create_NM_link; "
 ROOTFS_POSTPROCESS_COMMAND += " remove_hvec_asset; "
 ROOTFS_POSTPROCESS_COMMAND += " modify_NM; "
 
 R = "${IMAGE_ROOTFS}"
+
+python common_prod_image_hook(){
+     bb.build.exec_func('cleanup_stunnel_socat', d)
+     bb.build.exec_func('update_noshadow', d)
+     bb.build.exec_func('disable_agetty', d)
+     bb.build.exec_func('update_build_type_property', d)    
+}
+
+python prod_image_hook(){
+     bb.build.exec_func('common_prod_image_hook', d)
+}
+
+python prodlog_image_hook(){
+     bb.build.exec_func('common_prod_image_hook', d)
+}
+
+python common_image_hook(){
+     bb.build.exec_func('cleanup_amznsshlxybundl', d)
+}
+
+update_build_type_property() {
+    if [ -f "${R}/etc/device.properties" ]; then
+       sed -i 's/BUILD_TYPE=dev/BUILD_TYPE=prod/g' ${R}/etc/device.properties
+    fi
+}
+
+cleanup_stunnel_socat () {
+    if [ -d ${R}/lib/rdk/stunnel ];then
+        rm -rf ${R}/lib/rdk/stunnel
+    fi
+    if [ -f "${R}/bin/filan" ]; then
+        rm -rf ${R}/bin/filan
+    fi
+    if [ -f "${R}/bin/procan" ]; then
+        rm -rf ${R}/bin/procan
+    fi
+}
+
+python update_noshadow() {
+    import fileinput
+    import re
+    import sys
+    noshadow_path = d.getVar("R", True) + "/etc/shadow"
+    if os.path.isfile(noshadow_path):
+        for line in fileinput.input(noshadow_path, inplace=1):
+            line = re.sub("root::","root:*:",line)
+            sys.stdout.write(line)
+}
+
+cleanup_amznsshlxybundl() {
+    if [ -d ${R}/etc/amznsshlxybundl.bz2 ];then
+          rm -rf ${R}/etc/amznsshlxybundl.bz2
+    fi
+}
+
+disable_agetty() {
+    if [ -f "${R}/lib/systemd/system/getty@.service" ]; then
+        rm -rf ${R}/lib/systemd/system/getty@.service
+    fi
+    if [ -f "${R}/lib/systemd/system/serial-getty@.service" ]; then
+        rm -rf ${R}/lib/systemd/system/serial-getty@.service
+    fi
+    if [ -f "${R}/sbin/agetty" ]; then
+        rm -rf ${R}/sbin/agetty
+    fi
+    if [ -f "${R}/bin/login" ]; then
+        rm -rf ${R}/bin/login
+    fi
+}
 
 # Required for NetworkManager
 create_NM_link() {
