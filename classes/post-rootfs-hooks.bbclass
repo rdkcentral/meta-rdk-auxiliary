@@ -33,6 +33,7 @@ python prodlog_image_hook(){
 python common_image_hook(){
      bb.build.exec_func('cleanup_sshkeys', d)
      bb.build.exec_func('cleanup_amznsshlxybundl', d)
+     bb.build.exec_func('update_systemdtimesynd_service', d)
 }
 
 update_build_type_property() {
@@ -123,4 +124,11 @@ modify_NM() {
     if [ -f "${R}/etc/NetworkManager/NetworkManager.conf" ]; then
         sed -i "s/dns=dnsmasq//g" ${R}/etc/NetworkManager/NetworkManager.conf
     fi
+}
+# Required for start systemd-timesynd.service after ntp sync.
+update_systemdtimesynd_service() {
+     if [ -f "${R}/lib/systemd/system/systemd-timesyncd.service" ]; then
+         sed -i -E 's/^(Before=).*/\1time-sync.target shutdown.target/' ${R}/lib/systemd/system/systemd-timesyncd.service
+         sed -i -E '/^\[Install\]/,/^\[/{s/(WantedBy=).*/\1network-up.target/}' ${R}/lib/systemd/system/systemd-timesyncd.service
+     fi
 }
