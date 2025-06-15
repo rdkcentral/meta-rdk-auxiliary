@@ -131,4 +131,7 @@ update_systemdtimesynd_service() {
          sed -i -E 's/^(Before=).*/\1time-sync.target shutdown.target/' ${R}/lib/systemd/system/systemd-timesyncd.service
          sed -i -E '/^\[Install\]/,/^\[/{s/(WantedBy=).*/\1network-up.target/}' ${R}/lib/systemd/system/systemd-timesyncd.service
      fi
+     if [ -f "${R}/etc/systemd/system/sysinit.target.wants/systemd-timesyncd.service" ]; then
+          rm -rf ${R}/etc/systemd/system/sysinit.target.wants/systemd-timesyncd.service
+     fi
 }
