@@ -9,79 +9,11 @@
 # from the precise source specified in the recipe at any given point in time.
 # (Reference: https://github.com/yoctoproject/poky/commit/ebfa1700f41b3411aec040144605166c35b8dd14)
 
-
-def get_protocol(parm):
-    protocol = None
-    if "protocol" in parm:
-        protocol = parm.get("protocol")
-    elif "proto" in parm:
-        protocol = parm.get("proto")
-    else:
-        protocol = "https"
-    #if host == "github.com" or protocol == "git":
-    #    protocol = "https"
-    return protocol
-
-
-def get_commit_sha_for_tag(url, tag_name):
-    import subprocess
-    try:
-        commit_tag_name = "refs/tags/" + tag_name
-        annotated_tag_name = "refs/tags/" + tag_name + "^{}"
-        cmd = "git ls-remote --tags %s %s %s" %(url, annotated_tag_name, commit_tag_name)
-        output = subprocess.check_output(cmd.split(), stderr=subprocess.STDOUT).decode("utf-8")
-
-        for n in [annotated_tag_name, commit_tag_name]:
-            for line in output.split('\n'):
-                if line:
-                    if line.startswith('Warning:'):
-                        continue
-                    parts = line.split('\t')
-                    if len(parts) == 2:
-                        sha, ref = parts
-                        if ref == n:
-                            return sha
-        # If no valid tag found
-        bb.fatal("ERROR: The tag name '%s' does not exist for url '%s'" %(tag_name, url))
-    except subprocess.CalledProcessError as e:
-        bb.fatal("ERROR: cmd - %s failed with %s" %(cmd, e.output))
-
-
-def get_srcrev(d, name):
-    pn = d.getVar('PN')
-    attempts = []
-
-    if name != '' and pn:
-        attempts.append('SRCREV_%s:pn-%s' % (name, pn))
-    if name != '':
-        attempts.append('SRCREV_%s' % name)
-    if name == 'default':
-        if pn:
-            attempts.append('SRCREV:pn-%s' % pn)
-        attempts.append('SRCREV')
-
-    attempts_override =[]
-    overrides = d.getVar('OVERRIDES').split(":") or []
-    overrides = list(set(overrides))
-    overrides = [x for x in overrides if x.strip()]
-    for att in attempts:
-        for var in overrides:
-            attempts_override.append('%s:%s' %(att, var))
-    attempts.extend(attempts_override)
-    attempts = list(set(attempts))
-    srcrev_dct = {}
-    for att in attempts:
-        srcrev = d.getVar(att)
-        if srcrev and srcrev != "INVALID":
-            srcrev_dct[att] = srcrev
-    return srcrev_dct
-
-# Convert tag to sha in SRCREV
 python () {
-
-    dl_dir = d.getVar('DL_DIR')
     import fcntl
     import json
+    import sqlite3
+    import concurrent.futures
 
     class ShaCache:
         def __init__(self, cache_dir):
@@ -113,16 +45,73 @@ python () {
                 finally:
                     fcntl.flock(lock, fcntl.LOCK_UN)
 
-    cache = ShaCache(dl_dir)
-    pn = d.getVar('PN')
-    srcuri = d.getVar('SRC_URI')
-    urls = srcuri.split()
+    def get_protocol(parm):
+        protocol = None
+        if "protocol" in parm:
+            protocol = parm.get("protocol")
+        elif "proto" in parm:
+            protocol = parm.get("proto")
+        else:
+            protocol = "https"
+        return protocol
 
-    for url in urls:
+    def get_commit_sha_for_tag(url, tag_name):
+        import subprocess
+        try:
+            commit_tag_name = "refs/tags/" + tag_name
+            annotated_tag_name = "refs/tags/" + tag_name + "^{}"
+            cmd = "git ls-remote --tags %s %s %s" %(url, annotated_tag_name, commit_tag_name)
+            output = subprocess.check_output(cmd.split(), stderr=subprocess.STDOUT).decode("utf-8")
+
+            for n in [annotated_tag_name, commit_tag_name]:
+                for line in output.split('\n'):
+                    if line:
+                        if line.startswith('Warning:'):
+                            continue
+                        parts = line.split('\t')
+                        if len(parts) == 2:
+                            sha, ref = parts
+                            if ref == n:
+                                return sha
+            # If no valid tag found
+            bb.fatal("ERROR: The tag name '%s' does not exist for url '%s'" %(tag_name, url))
+        except subprocess.CalledProcessError as e:
+            bb.fatal("ERROR: cmd - %s failed with %s" %(cmd, e.output))
+
+    def get_srcrev(d, name):
+        pn = d.getVar('PN')
+        attempts = []
+        if name != '' and pn:
+            attempts.append('SRCREV_%s:pn-%s' % (name, pn))
+        if name != '':
+            attempts.append('SRCREV_%s' % name)
+        if name == 'default':
+            if pn:
+                attempts.append('SRCREV:pn-%s' % pn)
+            attempts.append('SRCREV')
+
+        attempts_override =[]
+        overrides = d.getVar('OVERRIDES').split(":") or []
+        overrides = list(set(overrides))
+        overrides = [x for x in overrides if x.strip()]
+        for att in attempts:
+            for var in overrides:
+                attempts_override.append('%s:%s' %(att, var))
+        attempts.extend(attempts_override)
+        attempts = list(set(attempts))
+        srcrev_dct = {}
+        for att in attempts:
+            srcrev = d.getVar(att)
+            if srcrev and srcrev != "INVALID":
+                srcrev_dct[att] = srcrev
+        return srcrev_dct
+
+
+    def process_url(url):
         (type, host, path, user, pswd, parm) =  bb.fetch2.decodeurl(url)
         if "git" in type:
             if not  user and "user" in parm:
-                user = param[user]
+                user = parm[user]
             name = parm.get("name",'default')
             protocol = get_protocol(parm)
             if not protocol in ["git", "http", "https", "ssh"]:
@@ -150,4 +139,20 @@ python () {
                                 #bb.note("Updating tag name '%s' to commit SHA '%s' in SRCREV for %s with %s" %(tag_name, tag_srcrev, pn, srcrev_var))
                                 d.setVar(srcrev_var, tag_srcrev)
                                 cache.store_sha_value(repo_cache_file, tag_srcrev)
+
+    def process_urls(urls):
+        import bb.utils as utils
+        with concurrent.futures.ThreadPoolExecutor(max_workers=utils.cpu_count()) as executor:
+            futures = []
+            for url in urls:
+                futures.append(executor.submit(process_url, url))
+            for future in concurrent.futures.as_completed(futures):
+                future.result()
+
+    cache = ShaCache(d.getVar('DL_DIR'))
+    pn = d.getVar('PN')
+    srcuri = d.getVar('SRC_URI')
+    urls = srcuri.split()
+
+    process_urls(urls)
 }
