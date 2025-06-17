@@ -134,10 +134,4 @@ update_systemdtimesynd_service() {
      if [ -f "${R}/etc/systemd/system/sysinit.target.wants/systemd-timesyncd.service" ]; then
           rm -rf ${R}/etc/systemd/system/sysinit.target.wants/systemd-timesyncd.service
      fi
-     if [ -f "${R}/etc/systemd/system/sysinit.target.wants/rdkssainit.path" ]; then
-          rm -rf ${R}/etc/systemd/system/multi-user.target.wants/rdkssainit.path
-     fi
-     if [ -f "${R}/lib/systemd/system/rdkssainit.path" ]; then
-         rm -rf ${R}/lib/systemd/system/rdkssainit.path
-     fi
 }
