@@ -105,6 +105,7 @@ disable_agetty() {
 
 # Required for NetworkManager
 create_NM_link() {
+    touch /var/run/NetworkManager/resolv.conf
     ln -sf /var/run/NetworkManager/no-stub-resolv.conf ${R}/etc/resolv.dnsmasq
     ln -sf /var/run/NetworkManager/resolv.conf ${R}/etc/resolv.conf
 }
