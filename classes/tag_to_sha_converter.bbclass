@@ -17,7 +17,7 @@ python () {
 
     class ShaCache:
         def __init__(self, cache_dir):
-            self.cache_dir = os.path.join(cache_dir, "sha_cache")
+            self.cache_dir = os.path.join(cache_dir, "git_revision_cache")
             os.makedirs(self.cache_dir, exist_ok=True)
 
         def get_sha_value(self, cache_file):
@@ -28,11 +28,15 @@ python () {
                 try:
                     if os.path.exists(file_path):
                         with open(file_path, 'r') as f:
-                            return f.read().strip()
-                    else:
-                        return None
+                            sha_val =  f.read().strip()
+                            if sha_val and len(sha_val) == 40:
+                                return sha_val
+                            else:
+                                os.remove(file_path)
+                    return None
                 finally:
                     fcntl.flock(lock, fcntl.LOCK_UN)
+                    lock.close()
 
         def store_sha_value(self, cache_file, sha_value):
             file_path = os.path.join(self.cache_dir, f'{cache_file}.txt')
@@ -44,6 +48,7 @@ python () {
                         f.write(sha_value)
                 finally:
                     fcntl.flock(lock, fcntl.LOCK_UN)
+                    lock.close()
 
     def get_protocol(parm):
         protocol = None
@@ -71,7 +76,7 @@ python () {
                         parts = line.split('\t')
                         if len(parts) == 2:
                             sha, ref = parts
-                            if ref == n:
+                            if ref == n and len(sha.strip()) == 40:
                                 return sha
             # If no valid tag found
             bb.fatal("ERROR: The tag name '%s' does not exist for url '%s'" %(tag_name, url))
@@ -107,45 +112,45 @@ python () {
         return srcrev_dct
 
 
-    def process_url(url):
-        (type, host, path, user, pswd, parm) =  bb.fetch2.decodeurl(url)
-        if "git" in type:
-            if not  user and "user" in parm:
-                user = parm[user]
-            name = parm.get("name",'default')
-            protocol = get_protocol(parm)
-            if not protocol in ["git", "http", "https", "ssh"]:
-                bb.fatal("ERROR: The URL '%s' for %s uses an invalid git protocol: '%s'" % (url, pn, protocol))
-            srcrevs =  get_srcrev(d, name)
-            for srcrev_var, srcrev in sorted(srcrevs.items()):
-                # Check if the srcrev is a tag
-                if srcrev and srcrev != "AUTOINC":
-                    # Anything that doesn't look like a sha256 checksum/revision is considered as tag
-                    if len(srcrev) != 40 or (False in [c in "abcdef0123456789" for c in srcrev.lower()]):
-                        tag_name = srcrev
-                        if user:
-                            username = user + '@'
-                        else:
-                            username = ""
-                        repo_url = "%s://%s%s%s" % (protocol, username, host, path)
-                        repo_cache_file = '%s%s_%s' % (host.replace(':', '.'), path.replace('/', '.').replace('*', '.').replace(' ','_'), tag_name.replace('/', '.'))
-                        tag_srcrev = cache.get_sha_value(repo_cache_file)
-                        if tag_srcrev is not None:
-                            #bb.note("Updating tag name from cache '%s' to commit SHA '%s' in SRCREV for %s with %s" %(tag_name, tag_srcrev, pn, srcrev_var))
+    def process_url(type, host, path, user, pswd, parm):
+        if not  user and "user" in parm:
+            user = parm[user]
+        name = parm.get("name",'default')
+        protocol = get_protocol(parm)
+        if not protocol in ["git", "http", "https", "ssh"]:
+            bb.fatal("ERROR: The %s uses an invalid git protocol: '%s'" % (pn, protocol))
+        srcrevs =  get_srcrev(d, name)
+        for srcrev_var, srcrev in sorted(srcrevs.items()):
+            # Check if the srcrev is a tag
+            if srcrev and srcrev != "AUTOINC":
+                # Anything that doesn't look like a sha256 checksum/revision is considered as tag
+                if len(srcrev) != 40 or (False in [c in "abcdef0123456789" for c in srcrev.lower()]):
+                    tag_name = srcrev
+                    if user:
+                        username = user + '@'
+                    else:
+                        username = ""
+                    repo_url = "%s://%s%s%s" % (protocol, username, host, path)
+                    repo_cache_file = '%s%s_%s' % (host.replace(':', '.'), path.replace('/', '.').replace('*', '.').replace(' ','_'), tag_name.replace('/', '.'))
+                    tag_srcrev = cache.get_sha_value(repo_cache_file)
+                    if tag_srcrev is not None:
+                        #bb.note("Updating tag name from cache '%s' to commit SHA '%s' in SRCREV for %s with %s" %(tag_name, tag_srcrev, pn, srcrev_var))
+                        d.setVar(srcrev_var, tag_srcrev)
+                    else:
+                        tag_srcrev = get_commit_sha_for_tag(repo_url, tag_name)
+                        if tag_srcrev:
+                            #bb.note("Updating tag name '%s' to commit SHA '%s' in SRCREV for %s with %s" %(tag_name, tag_srcrev, pn, srcrev_var))
                             d.setVar(srcrev_var, tag_srcrev)
-                        else:
-                            tag_srcrev = get_commit_sha_for_tag(repo_url, tag_name)
-                            if tag_srcrev:
-                                #bb.note("Updating tag name '%s' to commit SHA '%s' in SRCREV for %s with %s" %(tag_name, tag_srcrev, pn, srcrev_var))
-                                d.setVar(srcrev_var, tag_srcrev)
-                                cache.store_sha_value(repo_cache_file, tag_srcrev)
+                            cache.store_sha_value(repo_cache_file, tag_srcrev)
 
     def process_urls(urls):
         import bb.utils as utils
         with concurrent.futures.ThreadPoolExecutor(max_workers=utils.cpu_count()) as executor:
             futures = []
             for url in urls:
-                futures.append(executor.submit(process_url, url))
+                type, host, path, user, pswd, parm =  bb.fetch2.decodeurl(url)
+                if "git" in type:
+                    futures.append(executor.submit(process_url, type, host, path, user, pswd, parm))
             for future in concurrent.futures.as_completed(futures):
                 future.result()
 
@@ -156,3 +161,4 @@ python () {
 
     process_urls(urls)
 }
+
