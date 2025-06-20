@@ -110,7 +110,7 @@ pull_license_frm_artifactory() {
     echo "Machine: $machine"
     echo $artifactory_paths
     # From below path variable "artifactory_paths" we removed some sensitive strings about IPK server path which need to be reworked or reconstructed after open-sourcing.
-    artifactory_paths=$(echo $artifactory_paths | tr ' ' '\n' | grep -o -e 'http[s]*://[^ ]*' -e 'file*://[^ ]*')
+    artifactory_paths=$(echo $artifactory_paths | tr ' ' '\n' | grep -o -e 'http[s]*://[^ ]*' -e 'file*:[/][^ ]*')
     echo "Final artifactory paths: $artifactory_paths"
     for artifactory_path in $artifactory_paths; do
         set +e
