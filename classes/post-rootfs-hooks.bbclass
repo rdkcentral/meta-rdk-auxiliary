@@ -128,13 +128,15 @@ modify_NM() {
         sed -i "s/dns=dnsmasq//g" ${R}/etc/NetworkManager/NetworkManager.conf
     fi
 }
-# Required for start systemd-timesynd.service after ntp sync.
+
+# TODO This is temporary. Must be moved to OSS layer
+# Start systemd-timesynd.service on network UP
 update_systemdtimesynd_service() {
-     if [ -f "${R}/lib/systemd/system/systemd-timesyncd.service" ]; then
+     if [ -f "${R}/lib/systemd/system/systemd-timesyncd.service" -a -f "${R}/lib/systemd/system/network-up.target" ]; then
          sed -i -E 's/^(Before=).*/\1time-sync.target shutdown.target/' ${R}/lib/systemd/system/systemd-timesyncd.service
          sed -i -E '/^\[Install\]/,/^\[/{s/(WantedBy=).*/\1network-up.target/}' ${R}/lib/systemd/system/systemd-timesyncd.service
-     fi
-     if [ -f "${R}/etc/systemd/system/sysinit.target.wants/systemd-timesyncd.service" ]; then
-          rm -rf ${R}/etc/systemd/system/sysinit.target.wants/systemd-timesyncd.service
+         if [ -f "${R}/etc/systemd/system/sysinit.target.wants/systemd-timesyncd.service" ]; then
+             rm -rf ${R}/etc/systemd/system/sysinit.target.wants/systemd-timesyncd.service
+         fi
      fi
 }
