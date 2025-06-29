@@ -16,4 +16,4 @@ IMAGE_CLASSES +="logrotate_inconfig"
 IMAGE_CLASSES += "package_categories"
 
 # Post-rootfs hooks based on BUILD_VARIANT
-IMAGE_CLASSES += "post-rootfs-hooks"
+IMAGE_CLASSES += "${@bb.utils.contains('DISTRO_FEATURES', 'rdkoss','', 'post-rootfs-hooks',d)}"
