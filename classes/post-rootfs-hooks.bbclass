@@ -33,6 +33,7 @@ python prodlog_image_hook(){
 python common_image_hook(){
      bb.build.exec_func('cleanup_sshkeys', d)
      bb.build.exec_func('cleanup_amznsshlxybundl', d)
+     bb.build.exec_func('add_network_dependency_for_ntp_client', d)
 }
 
 update_build_type_property() {
@@ -105,8 +106,11 @@ disable_agetty() {
 
 # Required for NetworkManager
 create_NM_link() {
+    touch ${R}/etc/resolv.conf
+    echo "nameserver 127.0.0.1" > ${R}/etc/resolv.conf
+    echo "options timeout:1" >> ${R}/etc/resolv.conf
+    echo "options attempts:2" >> ${R}/etc/resolv.conf
     ln -sf /var/run/NetworkManager/no-stub-resolv.conf ${R}/etc/resolv.dnsmasq
-    ln -sf /var/run/NetworkManager/resolv.conf ${R}/etc/resolv.conf
 }
 
 remove_hvec_asset(){
@@ -123,4 +127,16 @@ modify_NM() {
     if [ -f "${R}/etc/NetworkManager/NetworkManager.conf" ]; then
         sed -i "s/dns=dnsmasq//g" ${R}/etc/NetworkManager/NetworkManager.conf
     fi
+}
+
+# TODO This is temporary. Must be moved to OSS layer
+# Start NTP client on network UP
+add_network_dependency_for_ntp_client() {
+     if [ -f "${R}/lib/systemd/system/systemd-timesyncd.service" -a -f "${R}/lib/systemd/system/network-up.target" ]; then
+         sed -i -E 's/^(Before=).*/\1time-sync.target shutdown.target/' ${R}/lib/systemd/system/systemd-timesyncd.service
+         sed -i -E '/^\[Install\]/,/^\[/{s/(WantedBy=).*/\1network-up.target/}' ${R}/lib/systemd/system/systemd-timesyncd.service
+         if [ -f "${R}/etc/systemd/system/sysinit.target.wants/systemd-timesyncd.service" ]; then
+             rm -rf ${R}/etc/systemd/system/sysinit.target.wants/systemd-timesyncd.service
+         fi
+     fi
 }
