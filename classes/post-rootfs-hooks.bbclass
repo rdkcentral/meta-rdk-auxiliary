@@ -128,7 +128,11 @@ modify_NM() {
         sed -i "s/dns=dnsmasq//g" ${R}/etc/NetworkManager/NetworkManager.conf
     fi
     if [ -f "${R}/etc/NetworkManager/conf.d/95-logging.conf" ]; then
-        sed -i "s/level=INFO/level=DEBUG/g" ${R}/etc/NetworkManager/NetworkManager.conf
+        bbnote "Inside logging, before sed"
+        cat ${R}/etc/NetworkManager/NetworkManager.conf
+        sed -i "s/INFO/DEBUG/" ${R}/etc/NetworkManager/NetworkManager.conf
+        bbnote "Inside logging, after sed"
+        cat ${R}/etc/NetworkManager/NetworkManager.conf
     fi
 }
 
