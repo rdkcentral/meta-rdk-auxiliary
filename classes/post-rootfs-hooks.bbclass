@@ -127,6 +127,9 @@ modify_NM() {
     if [ -f "${R}/etc/NetworkManager/NetworkManager.conf" ]; then
         sed -i "s/dns=dnsmasq//g" ${R}/etc/NetworkManager/NetworkManager.conf
     fi
+    if [ -f "${R}/etc/NetworkManager/conf.d/95-logging.conf" ]; then
+        sed -i "s/level=INFO/level=DEBUG/g" ${R}/etc/NetworkManager/NetworkManager.conf
+    fi
 }
 
 # TODO This is temporary. Must be moved to OSS layer
