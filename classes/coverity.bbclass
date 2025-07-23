@@ -99,7 +99,7 @@ COVERITY_BLACKLIST_PATH += "linux-avalanche | linux-yocto-custom | stblinux | rg
 COVERITY_BLACKLIST_PATH += "bbu-kdriver | docsis-headers | docsis | broadcom-refsw | broadcom-moca | broadcom-wifi-src"
 
 # Ignore problematic components
-COVERITY_BLACKLIST_PATH += "avro-c | graphite2 | zilker | wdmp-c | ctrlm-testapp | wpeframework | mkimage"
+COVERITY_BLACKLIST_PATH += "avro-c | graphite2 | zilker | wdmp-c | ctrlm-testapp | wpeframework | mkimage | openssl"
 COVERITY_BLACKLIST_PATH += "netflix-src | dtcpmgr | qtbase | syslog-helper | linux-meson | mediarite | quilt-native | qtdeclarative | qtwebsockets | qtwayland"
 COVERITY_BLACKLIST_PATH += "assystemserviced-debug"
 COVERITY_BLACKLIST_PATH += "wave-api | meta-wave | meta-sky-qt5"
