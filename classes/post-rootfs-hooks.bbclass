@@ -1,7 +1,6 @@
 # Run post-rootfs hooks based on BUILD_VARIANT
 # TBD: Move these hooks to respective components
 
-ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("DISTRO_FEATURES", "debug-variant", "dev_image_hook; ", "", d)}'
 ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("DISTRO_FEATURES", "prod-variant", "prod_image_hook; ", "", d)}'
 ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("DISTRO_FEATURES", "prodlog-variant", "prodlog_image_hook; ", "", d)}'
 ROOTFS_POSTPROCESS_COMMAND += " common_image_hook; "
@@ -10,10 +9,6 @@ ROOTFS_POSTPROCESS_COMMAND += " remove_hvec_asset; "
 ROOTFS_POSTPROCESS_COMMAND += " modify_NM; "
 
 R = "${IMAGE_ROOTFS}"
-
-python dev_image_hook(){
-     bb.build.exec_func('copy_dev_sshkeys', d)
-}
 
 python common_prod_image_hook(){
      bb.build.exec_func('cleanup_stunnel_socat', d)
@@ -31,7 +26,6 @@ python prodlog_image_hook(){
 }
 
 python common_image_hook(){
-     bb.build.exec_func('cleanup_sshkeys', d)
      bb.build.exec_func('cleanup_amznsshlxybundl', d)
      bb.build.exec_func('add_network_dependency_for_ntp_client', d)
 }
@@ -40,15 +34,6 @@ update_build_type_property() {
     if [ -f "${R}/etc/device.properties" ]; then
        sed -i 's/BUILD_TYPE=dev/BUILD_TYPE=prod/g' ${R}/etc/device.properties
     fi
-}
-
-copy_dev_sshkeys() {
-     if [ -d "${R}/etc/dropbear/vbn-keys" ]; then
-         install -m 0644 ${R}/etc/dropbear/vbn-keys/* ${R}/etc/dropbear
-     fi
-     if [ -f "${R}/etc/dropbear/id_dropbear" ]; then
-         rm -rf ${R}/etc/dropbear/id_dropbear
-     fi
 }
 
 cleanup_stunnel_socat () {
@@ -72,15 +57,6 @@ python update_noshadow() {
         for line in fileinput.input(noshadow_path, inplace=1):
             line = re.sub("root::","root:*:",line)
             sys.stdout.write(line)
-}
-
-cleanup_sshkeys() {
-     if [ -d ${R}/etc/dropbear/dev-keys ];then
-          rm -rf ${R}/etc/dropbear/dev-keys
-     fi
-     if [ -d ${R}/etc/dropbear/vbn-keys ];then
-          rm -rf ${R}/etc/dropbear/vbn-keys
-     fi
 }
 
 cleanup_amznsshlxybundl() {
