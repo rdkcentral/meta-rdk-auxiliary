@@ -97,9 +97,7 @@ remove_hvec_asset(){
 
 # Required for NetworkManager
 modify_NM() {
-    if [ -f "${R}/etc/NetworkManager/dispatcher.d/nlmon-script.sh" ]; then
-        rm -f ${R}/etc/NetworkManager/dispatcher.d/nlmon-script.sh
-    fi
+    
     if [ -f "${R}/etc/NetworkManager/NetworkManager.conf" ]; then
         sed -i "s/dns=dnsmasq//g" ${R}/etc/NetworkManager/NetworkManager.conf
     fi
