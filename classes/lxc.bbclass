@@ -27,5 +27,5 @@ python lxc_populate_packages() {
             d.setVar('pkg_postinst_%s' % pkg, postinst)
 }
 
-PACKAGESPLITFUNCS_prepend = "lxc_populate_packages "
+PACKAGESPLITFUNCS:prepend = "lxc_populate_packages "
 FILES_${PN} += "/lxc/*"
