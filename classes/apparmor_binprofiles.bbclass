@@ -45,5 +45,5 @@ execute_aa_compile_std_profiles() {
     rm -fr ${R}/etc/apparmor.d/*
     ${STAGING_DIR_NATIVE}/sbin/apparmor_parser -aQTW -I ${R}/ -M ${STAGING_DIR_NATIVE}/usr/lib/features -L ${R}/etc/apparmor/binprofiles/ ${R}/etc/apparmor/txttmp/*
 }
-FILES:${PN} += "/etc/apparmor/binprofiles/"
-FILES:${PN} += "/etc/apparmor/txttmp/"
+FILES_${PN} += "/etc/apparmor/binprofiles/"
+FILES_${PN} += "/etc/apparmor/txttmp/"
