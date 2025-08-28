@@ -42,6 +42,6 @@ execute_list_services() {
     rm -rf ${R}/etc/apparmor/earlyload_apparmor_profile.sh
     rm -rf ${R}/lib/systemd/system/earlyload-apparmor.service
 }
-FILES_${PN} += "/etc/apparmor/aa_profiles/"
-FILES_${PN} += "/etc/apparmor/service_profiles/*"
-FILES_${PN} += "/etc/tmp_cache/*"
+FILES:${PN} += "/etc/apparmor/aa_profiles/"
+FILES:${PN} += "/etc/apparmor/service_profiles/*"
+FILES:${PN} += "/etc/tmp_cache/*"
