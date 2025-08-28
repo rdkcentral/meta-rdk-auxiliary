@@ -30,12 +30,22 @@ execute_aa_compile_std_profiles() {
 
         while IFS= read -r line || [ -n "$line" ]; do
           line="${line#"${line%%[![:space:]]*}"}"
-          case "$line" in \#include\ \"*\"|\#include\ *)
+          case "$line" in
+          # Handle #include if exist entries
+            \#include\ if\ exists\ \"*\"|\#include\ if\ exists\ *)
+              file=${line#\#include if exists }
+              file=${file#\"}
+              file=${file%\"}
+              echo "#include if exists <${file}>"
+              ;;
+          # Handle #include entries
+            \#include\ \"*\"|\#include\ *)
               file=${line#\#include }
               file=${file#\"}
               file=${file%\"}
               echo "#include <${file}>"
               ;;
+
             *)
               echo "$line"
               ;;
