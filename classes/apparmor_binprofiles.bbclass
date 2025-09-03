@@ -8,9 +8,10 @@ SUMMARY = "AppArmor profile compilation"
 #
 DEPENDS += "apparmor-cache-native"
 
-ROOTFS_POSTPROCESS_COMMAND:append = " execute_aa_compile_std_profiles;"
+#ROOTFS_POSTPROCESS_COMMAND:append = " execute_aa_compile_std_profiles;"
 
-execute_aa_compile_std_profiles() {
+#execute_aa_compile_std_profiles()
+pkg_postinst:${PN}:append () {
     install -d ${R}/etc/apparmor.d/
     install -d ${R}/etc/apparmor/binprofiles/
     install -d ${R}/etc/apparmor/txttmp/
