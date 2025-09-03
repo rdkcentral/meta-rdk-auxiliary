@@ -11,7 +11,7 @@ SUMMARY = "AppArmor profile compilation"
 #ROOTFS_POSTPROCESS_COMMAND:append = " execute_aa_compile_std_profiles;"
 
 #execute_aa_compile_std_profiles()
-pkg_postinst:${PN}:append () {
+pkg_postinst_ontarget:${PN}:append () {
     install -d ${R}/etc/apparmor.d/
     install -d ${R}/etc/apparmor/binprofiles/
     install -d ${R}/etc/apparmor/txttmp/
@@ -56,5 +56,5 @@ pkg_postinst:${PN}:append () {
     rm -fr ${R}/etc/apparmor.d/*
     ${STAGING_DIR_NATIVE}/sbin/apparmor_parser -aQTW -I ${R}/ -M ${STAGING_DIR_NATIVE}/usr/lib/features -L ${R}/etc/apparmor/binprofiles/ ${R}/etc/apparmor/txttmp/*
 }
-#FILES:${PN} += "/etc/apparmor/binprofiles/"
-#FILES:${PN} += "/etc/apparmor/txttmp/"
+FILES:${PN} += "/etc/apparmor/binprofiles/"
+FILES:${PN} += "/etc/apparmor/txttmp/"
