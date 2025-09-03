@@ -6,7 +6,7 @@ SUMMARY = "AppArmor profile compilation"
 # the removal of text-based profiles on device, reducing space
 # and improving load times
 #
-DEPENDS += "apparmor-cache-native"
+#DEPENDS += "apparmor-cache-native"
 
 #ROOTFS_POSTPROCESS_COMMAND:append = " execute_aa_compile_std_profiles;"
 
