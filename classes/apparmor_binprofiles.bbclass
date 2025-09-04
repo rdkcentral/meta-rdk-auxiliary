@@ -11,13 +11,13 @@ SUMMARY = "AppArmor profile compilation"
 #ROOTFS_POSTPROCESS_COMMAND:append = " execute_aa_compile_std_profiles;"
 
 #execute_aa_compile_std_profiles()
-pkg_postinst_ontarget:${PN}:append () {
-    install -d ${R}/etc/apparmor.d/
-    install -d ${R}/etc/apparmor/binprofiles/
-    install -d ${R}/etc/apparmor/txttmp/
+pkg_postinst:${PN}:append () {
+    install -d ${D}/etc/apparmor.d/
+    install -d ${D}/etc/apparmor/binprofiles/
+    install -d ${D}/etc/apparmor/txttmp/
 
-    SRCDIR="${R}/etc//apparmor.d"
-    OUTDIR="${R}/etc/apparmor/txttmp"
+    SRCDIR="${D}/etc//apparmor.d"
+    OUTDIR="${D}/etc/apparmor/txttmp"
 
     # The parser's file search functionality considers any #include without < >'s an
     # absolute path that is immutable, which means -I and -b are not resolved. See
@@ -53,8 +53,8 @@ pkg_postinst_ontarget:${PN}:append () {
           esac
         done < "$f" > "$out"
     done
-    rm -fr ${R}/etc/apparmor.d/*
-    ${STAGING_DIR_NATIVE}/sbin/apparmor_parser -aQTW -I ${R}/ -M ${STAGING_DIR_NATIVE}/usr/lib/features -L ${R}/etc/apparmor/binprofiles/ ${R}/etc/apparmor/txttmp/*
+    rm -fr ${D}/etc/apparmor.d/*
+    ${STAGING_DIR_NATIVE}/sbin/apparmor_parser -aQTW -I ${D}/ -M ${STAGING_DIR_NATIVE}/usr/lib/features -L ${D}/etc/apparmor/binprofiles/ ${D}/etc/apparmor/txttmp/*
 }
 FILES:${PN} += "/etc/apparmor/binprofiles/"
 FILES:${PN} += "/etc/apparmor/txttmp/"
