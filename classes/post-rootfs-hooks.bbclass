@@ -92,13 +92,3 @@ remove_hvec_asset(){
         rm -rf ${R}/var/sky/assets/Vision50V95_HEVC.mp4
     fi
 }
-
-# Required for NetworkManager
-modify_NM() {
-    if [ -f "${R}/etc/NetworkManager/dispatcher.d/nlmon-script.sh" ]; then
-        rm -f ${R}/etc/NetworkManager/dispatcher.d/nlmon-script.sh
-    fi
-    if [ -f "${R}/etc/NetworkManager/NetworkManager.conf" ]; then
-        sed -i "s/dns=dnsmasq//g" ${R}/etc/NetworkManager/NetworkManager.conf
-    fi
-}
