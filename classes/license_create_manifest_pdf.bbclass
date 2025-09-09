@@ -69,6 +69,7 @@ def remove_duplicate_license(d):
     # SPDXLICENSEMAP (from licenses.conf) maintains map of different license strings and actual license
     license_list = []
     license_text_dir = os.path.join(d.expand('${LICENSE_DIRECTORY}/${IMAGE_NAME}'), 'licensetext')
+    bb.note("Working on %s" % license_text_dir)
     for root, dirs, files in os.walk(license_text_dir):
         for fl in files:
             lic = fl.replace("generic_", "")
@@ -114,8 +115,16 @@ pull_license_frm_artifactory() {
     echo "Final artifactory paths: $artifactory_paths"
     for artifactory_path in $artifactory_paths; do
         set +e
-	echo "Downloading licenses from $artifactory_path"
-        wget -r -np -nd --cut-dirs=3 --reject="index.html*" $artifactory_path/$machine/licenses/
+        echo "Downloading licenses from $artifactory_path"
+        if [[ "$artifactory_path" == *"http"* ]]
+        then
+            wget -r -np -nd --cut-dirs=3 --reject="index.html*" $artifactory_path/$machine/licenses/
+        elif [[ "$artifactory_path" == "file://"* ]]
+        then
+            # Remove the file prefix. cp does not need it.
+            copy_path=${artifactory_path#"file://"}
+            cp $copy_path/licenses/* .
+        fi
         set -e
     done
     ls -la
@@ -134,6 +143,7 @@ pull_license_frm_artifactory() {
 
 python assemble_license_manifest() {
 
+    bb.note("Assembling License Manifest")
     remove_duplicate_license(d)
     import sys
     sys.path.append(d.expand('${STAGING_DIR_NATIVE}/${PYTHON_SITEPACKAGES_DIR}/'))
@@ -145,7 +155,6 @@ python assemble_license_manifest() {
         license_create_txt(d)
     else:
         license_create_pdf(d)
-
 }
 
 
