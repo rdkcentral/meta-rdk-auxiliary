@@ -7,7 +7,6 @@ ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("DISTRO_FEATURES", "prodlog-
 ROOTFS_POSTPROCESS_COMMAND += " common_image_hook; "
 ROOTFS_POSTPROCESS_COMMAND += " create_NM_link; "
 ROOTFS_POSTPROCESS_COMMAND += " remove_hvec_asset; "
-ROOTFS_POSTPROCESS_COMMAND += " modify_NM; "
 
 R = "${IMAGE_ROOTFS}"
 
@@ -116,16 +115,6 @@ create_NM_link() {
 remove_hvec_asset(){
     if [ -f "${R}/var/sky/assets/Vision50V95_HEVC.mp4" ]; then
         rm -rf ${R}/var/sky/assets/Vision50V95_HEVC.mp4
-    fi
-}
-
-# Required for NetworkManager
-modify_NM() {
-    if [ -f "${R}/etc/NetworkManager/dispatcher.d/nlmon-script.sh" ]; then
-        rm -f ${R}/etc/NetworkManager/dispatcher.d/nlmon-script.sh
-    fi
-    if [ -f "${R}/etc/NetworkManager/NetworkManager.conf" ]; then
-        sed -i "s/dns=dnsmasq//g" ${R}/etc/NetworkManager/NetworkManager.conf
     fi
 }
 
