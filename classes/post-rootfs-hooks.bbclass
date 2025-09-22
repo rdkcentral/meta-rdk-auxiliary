@@ -133,10 +133,10 @@ modify_NM() {
 # Start NTP client on network UP
 add_network_dependency_for_ntp_client() {
      if [ -f "${R}/lib/systemd/system/systemd-timesyncd.service" -a -f "${R}/lib/systemd/system/network-up.target" ]; then
-         sed -i -E 's/^(Before=).*/\1time-sync.target shutdown.target/' ${R}/lib/systemd/system/systemd-timesyncd.service
-         sed -i -E '/^\[Install\]/,/^\[/{s/(WantedBy=).*/\1network-up.target/}' ${R}/lib/systemd/system/systemd-timesyncd.service
-         if [ -f "${R}/etc/systemd/system/sysinit.target.wants/systemd-timesyncd.service" ]; then
-             rm -rf ${R}/etc/systemd/system/sysinit.target.wants/systemd-timesyncd.service
+         sed -i -E 's/^(Before=).*/\1time-sync.target sysinit.target shutdown.target/' ${R}/lib/systemd/system/systemd-timesyncd.service
+         sed -i -E '/^\[Install\]/,/^\[/{s/(WantedBy=).*/\1sysinit.target/}' ${R}/lib/systemd/system/systemd-timesyncd.service
+         if [ -f "${R}/etc/systemd/system/network-up.target.wants/systemd-timesyncd.service" ]; then
+             rm -rf ${R}/etc/systemd/system/network-up.target.wants/systemd-timesyncd.service
          fi
      fi
 }
