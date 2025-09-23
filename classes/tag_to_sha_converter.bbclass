@@ -91,7 +91,7 @@ python () {
             commit_tag_name = "refs/tags/" + tag_name
             annotated_tag_name = "refs/tags/" + tag_name + "^{}"
             cmd = "git ls-remote --tags %s %s %s" %(url, annotated_tag_name, commit_tag_name)
-            output = subprocess.check_output(cmd.split(), stderr=subprocess.STDOUT, timeout=3).decode("utf-8")
+            output = subprocess.check_output(cmd.split(), stderr=subprocess.STDOUT).decode("utf-8")
             for ref_name in [annotated_tag_name, commit_tag_name]:
                 for line in output.split('\n'):
                     if line:
