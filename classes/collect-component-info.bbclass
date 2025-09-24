@@ -34,7 +34,7 @@ python collect_component_info_eventhandler() {
         return md_files
 
     def find_package_latest(buildhistory_dir, arch, package_name):
-        bb.note(f"Looking for latest file for package {package_name} in arch {arch}")
+        #bb.note(f"Looking for latest file for package {package_name} in arch {arch}")
         # Enhanced: find any directory under buildhistory_dir/packages that contains arch in its name
         packages_root = os.path.join(buildhistory_dir, "packages")
         candidate_dirs = []
@@ -80,33 +80,26 @@ python collect_component_info_eventhandler() {
         return pv, pr, srcuri
 
     def update_md_table(md_file, pkg_name, pkg_version):
-        # buildhistory will be following the recipe specified PN but same recipe
-        # may be providing more packages. Remove mlprefix from pkg_name if present
+        # Collect package info in a dict attached to e.data
+        if not hasattr(e.data, 'pkg_version_dict'):
+            e.data.pkg_version_dict = {}
         search_pkg_name = pkg_name
         if mlprefix and pkg_name.startswith(mlprefix):
             search_pkg_name = pkg_name[len(mlprefix):]
-        # Collect new entries in a global list attached to e.data
-        if not hasattr(e.data, 'new_md_entries'):
-            e.data.new_md_entries = []
-        # Only add entry if pkg_name is not already present in md_file
-        already_present = False
-        if os.path.exists(md_file):
-            with open(md_file, 'r') as f:
-                for line in f:
-                    if search_pkg_name in line:
-                        already_present = True
-                        break
-        entry = f"| {pkg_name} | {pkg_version} |\n"
-        if not already_present:
-            with open(md_file, 'a') as wf:
-                wf.write(entry)
-                e.data.new_md_entries.append((md_file, entry))
-                wf.close()
+        # Update dict if exists, else add new
+        if search_pkg_name in e.data.pkg_version_dict:
+            e.data.pkg_version_dict[search_pkg_name] = pkg_version
+            bb.note(f"Updated entry for {search_pkg_name}: {pkg_version}")
         else:
-            bb.note(f"Entry for {pkg_name} already exists in {md_file}, skipping.")
+            e.data.pkg_version_dict[search_pkg_name] = pkg_version
+            bb.note(f"Added entry for {search_pkg_name}: {pkg_version}")
 
     if isinstance(e, bb.event.BuildCompleted):
         bb.note("BuildCompleted event received. Starting collect-component-info processing...")
+        # check if buildhistory is inherited; else return with an error message.
+        if not e.data.inherits_class('buildhistory'):
+            bb.warn("buildhistory class not inherited. Cannot collect component info.")
+            return
         buildhistory_dir = e.data.getVar('BUILDHISTORY_DIR')
         all_archs = e.data.getVar('ALL_MULTILIB_PACKAGE_ARCHS').split()
         package_arch = 'raspberrypi4-64-rdke-middleware'
@@ -142,7 +135,7 @@ python collect_component_info_eventhandler() {
                     continue
                 import json
                 tmpdir = e.data.getVar('TMPDIR')
-                arch_details_path = os.path.join(tmpdir, f"{arch}-component-details.conf")
+                arch_details_path = os.path.join(tmpdir, f"{arch}-component-details.json")
                 arch_details = {}
                 if os.path.exists(arch_details_path):
                     with open(arch_details_path, 'r') as f:
@@ -151,7 +144,7 @@ python collect_component_info_eventhandler() {
                         except Exception as ex:
                             bb.warn(f"Failed to load existing {arch_details_path}: {ex}")
                 for pkg_name in pkgs:
-                    bb.note(f"Processing package {pkg_name} for arch {arch}, MLPREFIX: {mlprefix}")
+                    #bb.note(f"Processing package {pkg_name} for arch {arch}, MLPREFIX: {mlprefix}")
                     latest_path = find_package_latest(buildhistory_dir, arch, pkg_name)
                     if not latest_path:
                         bb.warn(f"No latest file for {pkg_name} in arch {arch}, skipping.")
@@ -169,40 +162,22 @@ python collect_component_info_eventhandler() {
                     json.dump(arch_details, f, indent=4)
                     f.close()
                 bb.note(f"Wrote component details for arch {arch} to {arch_details_path}")
-        # After all packages processed, append all new entries to the MD file
-        if hasattr(e.data, 'new_md_entries') and e.data.new_md_entries:
-            md_file_entries = {}
-            for md_file, entry in e.data.new_md_entries:
-                md_file_entries.setdefault(md_file, []).append(entry)
-            # Write all new_md_entries to a debug file in tmpdir for verification
+        # After all packages processed, batch write all entries to a new sorted MD file
+        if hasattr(e.data, 'pkg_version_dict') and e.data.pkg_version_dict:
             tmpdir = e.data.getVar('TMPDIR')
-            debug_new_entries_path = os.path.join(tmpdir, 'collect-component-info-new-entries.txt')
-            with open(debug_new_entries_path, 'w') as debug_f:
-                for entries in md_file_entries.values():
-                    for entry in entries:
-                        debug_f.write(entry)
-                debug_f.write("\n")
-                debug_f.close()
-            bb.note(f"Wrote new_md_entries to debug file: {debug_new_entries_path}")
-            for md_file, entries in md_file_entries.items():
-                if not os.path.exists(md_file):
-                    bb.warn(f"MD file does not exist: {md_file}")
-                    continue
-                if not os.access(md_file, os.W_OK):
-                    bb.warn(f"MD file is not writable: {md_file}")
-                    continue
-                with open(md_file, 'r') as f:
-                    lines = f.readlines()
-                # Find header
-                insert_index = None
-                for i, line in enumerate(lines):
-                    if line.startswith('|--------------|'):
-                        insert_index = i + 1
-                        break
-                if insert_index is not None:
-                    lines[insert_index:insert_index] = entries
-                    with open(md_file, 'w') as f:
-                        f.writelines(lines)
-                    bb.note(f"Appended {len(entries)} new entries to {md_file} after header.")
+            new_md_file = os.path.join(tmpdir, 'CompleteMiddlewarePackagesAndVersions.md')
+            all_entries = list(e.data.pkg_version_dict.items())
+            # Separate packagegroup-* entries
+            pkg_group_entries = [(pkg_name, pkg_version) for pkg_name, pkg_version in all_entries if pkg_name.startswith('packagegroup-')]
+            other_entries = [(pkg_name, pkg_version) for pkg_name, pkg_version in all_entries if not pkg_name.startswith('packagegroup-')]
+            # Sort both lists alphabetically
+            pkg_group_entries.sort()
+            other_entries.sort()
+            with open(new_md_file, 'w') as f:
+                f.write('| Package Name | Version |\n')
+                f.write('|--------------|---------|\n')
+                for pkg_name, pkg_version in pkg_group_entries + other_entries:
+                    f.write(f'| {pkg_name} | {pkg_version} |\n')
+            bb.note(f"Created {new_md_file} with sorted  package/version entries.")
         bb.note("collect-component-info processing complete.")
 }
