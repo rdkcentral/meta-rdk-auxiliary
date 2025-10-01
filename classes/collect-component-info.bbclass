@@ -9,7 +9,7 @@ python collect_component_info_eventhandler() {
     mlprefix = e.data.getVar('MLPREFIX') or 'lib32-'
 
     def find_package_latest(buildhistory_dir, arch, package_name):
-        """Find the latest file for a package in buildhistory directories."""
+        # Find the latest file for a package in buildhistory directories.
         packages_root = os.path.join(buildhistory_dir, "packages")
         candidate_dirs = []
         if os.path.isdir(packages_root):
@@ -33,7 +33,7 @@ python collect_component_info_eventhandler() {
         return None
 
     def read_pv_pr_srcuri(latest_path):
-        """Extract PV, PR, and SRC_URI from buildhistory latest file."""
+        # Extract PV, PR, and SRC_URI from buildhistory latest file.
         pv = pr = srcuri = None
         try:
             with open(latest_path, 'r') as f:
@@ -48,6 +48,26 @@ python collect_component_info_eventhandler() {
         except Exception as ex:
             bb.warn(f"Error reading {latest_path}: {ex}")
         return pv, pr, srcuri
+
+    def read_srcrev_info(latest_srcrev_path):
+        # Extract SRCREV information from buildhistory latest_srcrev file.
+        srcrev_data = {}
+        try:
+            with open(latest_srcrev_path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    # Skip commented lines and empty lines
+                    if line and not line.startswith('#'):
+                        if line.startswith('SRCREV'):
+                            # Parse SRCREV lines like: SRCREV_firebolt = "7b01285cd..."
+                            if '=' in line:
+                                key, value = line.split('=', 1)
+                                key = key.strip()
+                                value = value.strip().strip('"')
+                                srcrev_data[key] = value
+        except Exception as ex:
+            bb.warn(f"Error reading {latest_srcrev_path}: {ex}")
+        return srcrev_data
 
     def create_component_version_md_file(candidate_arch, arch_pkg_details):
         tmpdir = e.data.getVar('TMPDIR')
@@ -177,8 +197,18 @@ python collect_component_info_eventhandler() {
                     bb.warn(f"PV or PR missing for {pkg_name} in arch {candidate_arch}, skipping.")
                     continue
 
-                # Store package details
-                arch_pkg_details[pkg_name] = [{"pv": pv, "pr": pr, "srcuri": srcuri}]
+                # Read SRCREV information from latest_srcrev file
+                package_dir = os.path.dirname(latest_path)
+                latest_srcrev_path = os.path.join(package_dir, "latest_srcrev")
+                srcrev_data = {}
+                if os.path.exists(latest_srcrev_path):
+                    srcrev_data = read_srcrev_info(latest_srcrev_path)
+
+                package_info = {"pv": pv, "pr": pr, "srcuri": srcuri}
+                if srcrev_data:
+                    package_info["srcrev"] = srcrev_data
+
+                arch_pkg_details[pkg_name] = [package_info]
 
             # Write architecture details to file
             try:
