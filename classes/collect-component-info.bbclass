@@ -96,15 +96,27 @@ python collect_component_info_eventhandler() {
 
     if isinstance(e, bb.event.BuildCompleted):
         bb.note("BuildCompleted event received. Starting collect-component-info processing...")
-        # check if buildhistory is inherited; else return with an error message.
-        if not e.data.inherits_class('buildhistory'):
-            bb.warn("buildhistory class not inherited. Cannot collect component info.")
+        machine_name = e.data.getVar('MACHINE')
+        deploy_ipk_feed = e.data.getVar('DEPLOY_IPK_FEED') or 'None'
+        generate_ipk_version_doc = e.data.getVar('GENERATE_IPK_VERSION_DOC') or 'None'
+        generate_layer_component_doc = e.data.getVar('GENERATE_RDKE_LAYER_COMPONENT_DOC') or 'None'
+        bb.note(f"DEPLOY_IPK_FEED: {deploy_ipk_feed}")
+        bb.note(f"GENERATE_IPK_VERSION_DOC: {generate_ipk_version_doc}")
+        # exit if generate_ipk_version_doc is None
+        if not generate_layer_component_doc or generate_layer_component_doc == 'None':
+            bb.note("GENERATE_RDKE_LAYER_COMPONENT_DOC is not set. Exiting collect-component-info handler.")
             return
         buildhistory_dir = e.data.getVar('BUILDHISTORY_DIR')
         all_archs = e.data.getVar('ALL_MULTILIB_PACKAGE_ARCHS').split()
-        package_arch = 'raspberrypi4-64-rdke-middleware'
+        package_arch = e.data.getVar('RDKE_DOC_LAYER_TYPE') or e.data.getVar('MIDDLEWARE_ARCH')
+        bb.note(f"Specified package_arch is {package_arch}")
         archs = [arch for arch in all_archs if arch == package_arch]
         bb.note(f"Filtered archs to PACKAGE_ARCH={package_arch}: {archs}")
+        # check if INHERIT contain 'buildhistory' word because it is needed for proceeding further.
+        inherit_val = e.data.getVar('INHERIT') or ''
+        if 'buildhistory' not in inherit_val.split():
+            bb.warn("Aborting since 'buildhistory' is not enabled.")
+            return
         md_files = get_md_files(e.data)
         md_file_map = {arch: md_file for arch, md_file in zip(all_archs, md_files) if arch in archs and os.path.exists(md_file)}
         bb.note(f"Found MD files for PACKAGE_ARCH: {list(md_file_map.keys())}")
@@ -178,6 +190,6 @@ python collect_component_info_eventhandler() {
                 f.write('|--------------|---------|\n')
                 for pkg_name, pkg_version in pkg_group_entries + other_entries:
                     f.write(f'| {pkg_name} | {pkg_version} |\n')
-            bb.note(f"Created {new_md_file} with sorted  package/version entries.")
+            bb.note(f"Wrote sorted package/version entries to new MD file: {new_md_file}")
         bb.note("collect-component-info processing complete.")
 }
