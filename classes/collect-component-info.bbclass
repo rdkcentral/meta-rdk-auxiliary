@@ -5,6 +5,9 @@ python collect_component_info_eventhandler() {
     import os
     import json
 
+    # Get MLPREFIX for consistency with BitBake variables
+    mlprefix = e.data.getVar('MLPREFIX') or 'lib32-'
+
     def find_package_latest(buildhistory_dir, arch, package_name):
         """Find the latest file for a package in buildhistory directories."""
         packages_root = os.path.join(buildhistory_dir, "packages")
@@ -45,6 +48,57 @@ python collect_component_info_eventhandler() {
         except Exception as ex:
             bb.warn(f"Error reading {latest_path}: {ex}")
         return pv, pr, srcuri
+
+    def create_component_version_md_file(candidate_arch, arch_pkg_details):
+        tmpdir = e.data.getVar('TMPDIR')
+        md_file = os.path.join(tmpdir, f'{candidate_arch}-PackagesAndVersions.md')
+
+        try:
+            # Extract package entries and create version strings
+            all_entries = []
+            for pkg_name, pkg_info_list in arch_pkg_details.items():
+                if pkg_info_list and len(pkg_info_list) > 0:
+                    pkg_info = pkg_info_list[0]
+                    pv = pkg_info.get('pv', '')
+                    pr = pkg_info.get('pr', '')
+                    if pv and pr:
+                        version = f"{pv}-{pr}"
+                        # Keep full package name (including MLPREFIX) for display
+                        display_name = pkg_name
+                        all_entries.append((display_name, version))
+
+            # Sorting logic for packages
+            pkg_group_entries = []
+            other_entries = []
+
+            for name, version in all_entries:
+                base_name = name.replace(mlprefix, '') if name.startswith(mlprefix) else name
+                if base_name.startswith('packagegroup-'):
+                    pkg_group_entries.append((name, version))
+                else:
+                    other_entries.append((name, version))
+
+            pkg_group_entries.sort()
+            other_entries.sort()
+
+            # Write Markdown file
+            with open(md_file, 'w') as f:
+                f.write(f'# {candidate_arch} - Packages and Versions\n\n')
+                f.write('| Package Name | Version |\n')
+                f.write('|--------------|---------|\n')
+
+                # Write packagegroup entries first
+                for pkg_name, version in pkg_group_entries:
+                    f.write(f'| {pkg_name} | {version} |\n')
+
+                # Write other entries
+                for pkg_name, version in other_entries:
+                    f.write(f'| {pkg_name} | {version} |\n')
+
+            bb.note(f"Created Markdown file: {md_file} with {len(all_entries)} packages")
+
+        except Exception as ex:
+            bb.warn(f"Error creating Markdown file {md_file}: {ex}")
 
     if isinstance(e, bb.event.BuildCompleted):
         bb.note("BuildCompleted event received. Starting collect-component-info processing...")
@@ -133,6 +187,9 @@ python collect_component_info_eventhandler() {
                 bb.note(f"Wrote component details for arch {candidate_arch} to {arch_details_file}")
             except Exception as ex:
                 bb.warn(f"Error writing {arch_details_file}: {ex}")
+
+            # Create an MD file based on the arch_pkg_details
+            create_component_version_md_file(candidate_arch, arch_pkg_details)
 
         bb.note("collect-component-info processing complete.")
 }
