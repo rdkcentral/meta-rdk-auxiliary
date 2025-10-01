@@ -69,12 +69,140 @@ python collect_component_info_eventhandler() {
             bb.warn(f"Error reading {latest_srcrev_path}: {ex}")
         return srcrev_data
 
+    def extract_git_repo_info(srcuri):
+        """Extract Git repository information from SRC_URI."""
+        try:
+            import bb.fetch2
+            # Parse URLs from SRC_URI (handle git://, gitsm://, git+)
+            urls = srcuri.split() if srcuri else []
+            for url in urls:
+                if any(protocol in url for protocol in ['git://', 'gitsm://', 'git+']):
+                    type, host, path, user, pswd, parm = bb.fetch2.decodeurl(url)
+                    if ('git' in type or type == 'gitsm') and host:
+                        # Get protocol (default to https for web links)
+                        protocol = 'https'
+                        if 'protocol' in parm:
+                            protocol = parm['protocol']
+                        elif 'proto' in parm:
+                            protocol = parm['proto']
+
+                        # Build base repo URL for web interface
+                        if protocol in ['git', 'ssh']:
+                            protocol = 'https'  # Convert to web-accessible protocol
+                        elif protocol == 'http' and 'github.com' in host:
+                            protocol = 'https'  # GitHub requires HTTPS for web interface
+
+                        base_url = f"{protocol}://{host}{path}"
+                        # Remove .git extension if present
+                        if base_url.endswith('.git'):
+                            base_url = base_url[:-4]
+
+                        return base_url
+        except Exception as ex:
+            bb.warn(f"Error parsing SRC_URI: {ex}")
+        return None
+
+    def analyze_srcuri_type(srcuri):
+        """Analyze SRC_URI to determine if it's git, artifact, or layer-hosted."""
+        if not srcuri:
+            return 'unknown', None
+
+        try:
+            import bb.fetch2
+            urls = srcuri.split()
+
+            for url in urls:
+                type, host, path, user, pswd, parm = bb.fetch2.decodeurl(url)
+
+                # Check for file:// protocol (layer hosted)
+                if type == 'file':
+                    return 'layer-hosted', None
+
+                # Check for git repositories (including gitsm)
+                if 'git' in type or type == 'gitsm':
+                    return 'git', None
+
+                # Check for artifacts (http/https with downloadable files)
+                if type in ['http', 'https', 'ftp']:
+                    # Common artifact extensions
+                    artifact_extensions = ['.tar.gz', '.tar.xz', '.tar.bz2', '.zip', '.tgz',
+                                         '.ipk', '.deb', '.rpm', '.jar', '.war', '.tar']
+
+                    if any(path.endswith(ext) for ext in artifact_extensions):
+                        full_url = f"{type}://{host}{path}"
+                        return 'artifact', full_url
+                    else:
+                        # Generic HTTP URL without clear artifact extension
+                        full_url = f"{type}://{host}{path}"
+                        return 'artifact', full_url
+
+            return 'unknown', None
+
+        except Exception as ex:
+            bb.warn(f"Error analyzing SRC_URI type: {ex}")
+            return 'unknown', None
+
+    def create_version_hyperlink(pkg_info, srcuri_type, artifact_url=None):
+        """Create hyperlinked version with preference: release > tag > sha, or artifact/layer-hosted."""
+        pv = pkg_info.get('pv', '')
+        pr = pkg_info.get('pr', '')
+        srcrev_data = pkg_info.get('srcrev', {})
+        srcuri = pkg_info.get('srcuri', '')
+
+        if not pv or not pr:
+            return pv or 'unknown'
+
+        version = f"{pv}-{pr}"
+
+        # Handle layer-hosted packages
+        if srcuri_type == 'layer-hosted':
+            return f"{version} (layer hosted)"
+
+        # Handle artifacts
+        if srcuri_type == 'artifact' and artifact_url:
+            return f"[{version} (artifact)]({artifact_url})"
+
+        # Handle Git repositories
+        if srcuri_type == 'git':
+            base_repo_url = extract_git_repo_info(srcuri)
+            if not base_repo_url:
+                return version
+
+            # Only create hyperlinks based on actual SRCREV data, not assumptions
+            # 1. Check for tag in SRCREV data (look for tag-like patterns)
+            for srcrev_key, srcrev_value in srcrev_data.items():
+                if srcrev_value and len(srcrev_value) != 40:  # Not a SHA, likely a tag
+                    # Check if it looks like a version tag
+                    if any(char.isdigit() for char in srcrev_value):
+                        tag_url = f"{base_repo_url}/releases/tag/{srcrev_value}"
+                        return f"[{version}]({tag_url})"
+
+            # 2. Use SHA if available (prefer main SRCREV)
+            sha_value = None
+            if 'SRCREV' in srcrev_data:
+                sha_value = srcrev_data['SRCREV']
+            elif srcrev_data:
+                # Use first available SRCREV
+                sha_value = next(iter(srcrev_data.values()))
+
+            if sha_value and len(sha_value) == 40:
+                commit_url = f"{base_repo_url}/commit/{sha_value}"
+                return f"[{version}]({commit_url})"
+
+            # 3. If no SRCREV data but is git repo, just link to the repository
+            if base_repo_url:
+                return f"[{version}]({base_repo_url})"
+
+        # Fallback to plain version if no linkable info
+        return version
+
     def create_component_version_md_file(candidate_arch, arch_pkg_details):
+        """Create a Markdown file with package names and hyperlinked versions."""
         tmpdir = e.data.getVar('TMPDIR')
         md_file = os.path.join(tmpdir, f'{candidate_arch}-PackagesAndVersions.md')
 
         try:
-            # Extract package entries and create version strings
+            # Extract package entries and create version strings with hyperlinks
             all_entries = []
             for pkg_name, pkg_info_list in arch_pkg_details.items():
                 if pkg_info_list and len(pkg_info_list) > 0:
@@ -82,10 +210,16 @@ python collect_component_info_eventhandler() {
                     pv = pkg_info.get('pv', '')
                     pr = pkg_info.get('pr', '')
                     if pv and pr:
-                        version = f"{pv}-{pr}"
+                        # Analyze SRC_URI type for appropriate linking
+                        srcuri = pkg_info.get('srcuri', '')
+                        srcuri_type, artifact_url = analyze_srcuri_type(srcuri)
+
+                        # Create hyperlinked version based on source type
+                        version_link = create_version_hyperlink(pkg_info, srcuri_type, artifact_url)
+
                         # Keep full package name (including MLPREFIX) for display
                         display_name = pkg_name
-                        all_entries.append((display_name, version))
+                        all_entries.append((display_name, version_link))
 
             # Sorting logic for packages
             pkg_group_entries = []
