@@ -222,7 +222,7 @@ python generate_rdke_component_info_eventhandler() {
     def create_component_version_md_file(layer_type, arch_pkg_details):
         # Create a Markdown file with package names and hyperlinked versions.
         tmpdir = e.data.getVar('TMPDIR')
-        md_file = os.path.join(tmpdir, f'{layer_type}-PackagesAndVersions.md')
+        md_file = os.path.join(tmpdir, f'{layer_type.title()}-PackagesAndVersions.md')
 
         try:
             # Extract package entries and create version strings with hyperlinks
