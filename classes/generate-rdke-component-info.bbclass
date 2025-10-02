@@ -1,7 +1,18 @@
-addhandler collect_component_info_eventhandler
-collect_component_info_eventhandler[eventmask] = "bb.event.BuildCompleted"
+# -----------------------------------------------------------------------
+# File: classes/generate-rdke-component-info.bbclass
+# Author: RDK Management
+#
+# Description : Iterates through the buildhistory and creates component
+#  documentation files based on layer architecture configuration.
+#  Generates JSON metadata and Markdown reports with hyperlinked package
+#  versions for oss, vendor, middleware, application layer; whichever is
+#  specified or in the order of priority.
+# -----------------------------------------------------------------------
 
-python collect_component_info_eventhandler() {
+addhandler generate_rdke_component_info_eventhandler
+generate_rdke_component_info_eventhandler[eventmask] = "bb.event.BuildCompleted"
+
+python generate_rdke_component_info_eventhandler() {
     import os
     import json
 
@@ -70,7 +81,7 @@ python collect_component_info_eventhandler() {
         return srcrev_data
 
     def extract_git_repo_info(srcuri):
-        """Extract Git repository information from SRC_URI."""
+        # Extract Git repository information from SRC_URI.
         try:
             import bb.fetch2
             # Parse URLs from SRC_URI (handle git://, gitsm://, git+)
@@ -103,7 +114,7 @@ python collect_component_info_eventhandler() {
         return None
 
     def analyze_srcuri_type(srcuri):
-        """Analyze SRC_URI to determine if it's git, artifact, or layer-hosted."""
+        # Analyze SRC_URI to determine if it's git, artifact, or layer-hosted.
         if not srcuri:
             return 'unknown', None
 
@@ -143,7 +154,7 @@ python collect_component_info_eventhandler() {
             return 'unknown', None
 
     def create_version_hyperlink(pkg_info, srcuri_type, artifact_url=None):
-        """Create hyperlinked version with preference: release > tag > sha, or artifact/layer-hosted."""
+        # Create hyperlinked version with preference: release > tag > sha, or artifact/layer-hosted.
         pv = pkg_info.get('pv', '')
         pr = pkg_info.get('pr', '')
         srcrev_data = pkg_info.get('srcrev', {})
@@ -193,13 +204,25 @@ python collect_component_info_eventhandler() {
             if base_repo_url:
                 return f"[{version}]({base_repo_url})"
 
-        # Fallback to plain version if no linkable info
+                # Fallback to plain version if no linkable info
         return version
 
-    def create_component_version_md_file(candidate_arch, arch_pkg_details):
-        """Create a Markdown file with package names and hyperlinked versions."""
+    def extract_layer_type(arch_name):
+        # Extract layer type (oss, vendor, middleware, application) from architecture name.
+        layer_types = ['oss', 'vendor', 'middleware', 'application']
+        for layer_type in layer_types:
+            if arch_name.endswith(f'-{layer_type}'):
+                return layer_type
+        # Fallback - try to find it anywhere in the name
+        for layer_type in layer_types:
+            if layer_type in arch_name:
+                return layer_type
+        return 'unknown'
+
+    def create_component_version_md_file(layer_type, arch_pkg_details):
+        # Create a Markdown file with package names and hyperlinked versions.
         tmpdir = e.data.getVar('TMPDIR')
-        md_file = os.path.join(tmpdir, f'{candidate_arch}-PackagesAndVersions.md')
+        md_file = os.path.join(tmpdir, f'{layer_type}-PackagesAndVersions.md')
 
         try:
             # Extract package entries and create version strings with hyperlinks
@@ -237,7 +260,7 @@ python collect_component_info_eventhandler() {
 
             # Write Markdown file
             with open(md_file, 'w') as f:
-                f.write(f'# {candidate_arch} - Packages and Versions\n\n')
+                f.write(f'# {layer_type.title()} Layer - Packages and Versions\n\n')
                 f.write('| Package Name | Version |\n')
                 f.write('|--------------|---------|\n')
 
@@ -249,19 +272,16 @@ python collect_component_info_eventhandler() {
                 for pkg_name, version in other_entries:
                     f.write(f'| {pkg_name} | {version} |\n')
 
-            bb.note(f"Created Markdown file: {md_file} with {len(all_entries)} packages")
+            #bb.note(f"Created Markdown file: {md_file} with {len(all_entries)} packages")
 
         except Exception as ex:
             bb.warn(f"Error creating Markdown file {md_file}: {ex}")
 
     if isinstance(e, bb.event.BuildCompleted):
-        bb.note("BuildCompleted event received. Starting collect-component-info processing...")
-
-        # Check if documentation generation is enabled
-        generate_layer_component_doc = e.data.getVar('GENERATE_RDKE_LAYER_COMPONENT_DOC') or 'None'
-        if not generate_layer_component_doc or generate_layer_component_doc == 'None':
-            bb.note("GENERATE_RDKE_LAYER_COMPONENT_DOC is not set. Exiting collect-component-info handler.")
-            return
+        import time
+        start_time = time.time()
+        start_ms = int((start_time % 1) * 1000)
+        bb.note(f"Starting generate-rdke-component-info processing...")
 
         # Check if buildhistory is enabled
         inherit_val = e.data.getVar('INHERIT') or ''
@@ -272,11 +292,32 @@ python collect_component_info_eventhandler() {
         # Get configuration variables
         buildhistory_dir = e.data.getVar('BUILDHISTORY_DIR')
         all_archs = e.data.getVar('ALL_MULTILIB_PACKAGE_ARCHS').split()
-        layer_package_arch = e.data.getVar('RDKE_DOC_LAYER_TYPE') or e.data.getVar('MIDDLEWARE_ARCH')
+
+        # Get layer_package_arch with priority order for different layer types
+        layer_package_arch = e.data.getVar('RDKE_GEN_DOC_LAYER_ARCH')
+
+        if not layer_package_arch:
+            # These shall be available in bitbake env. Check variables in ascending priority order
+            priority_vars = [
+                'OSS_LAYER_EXTENSION',
+                'OSS_LAYER_ARCH',
+                'VENDOR_LAYER_EXTENSION',
+                'MIDDLEWARE_ARCH',
+                'APP_LAYER_ARCH'
+            ]
+
+            for var_name in priority_vars:
+                var_value = e.data.getVar(var_name)
+                if var_value:
+                    layer_package_arch = var_value
+                    # Don't break - continue to get highest priority (last found)
+
+        if not layer_package_arch:
+            bb.warn("No layer architecture variable found. Skipping component info collection.")
+            return
+
         tmpdir = e.data.getVar('TMPDIR')
-        bb.note(f"Specified layer_package_arch is {layer_package_arch}")
         archs = [arch for arch in all_archs if arch == layer_package_arch]
-        bb.note(f"Filtered archs to layer_package_arch={layer_package_arch}: {archs}")
 
         # Find candidate architecture directories
         packages_root = os.path.join(buildhistory_dir, "packages")
@@ -295,21 +336,22 @@ python collect_component_info_eventhandler() {
         # Process each architecture directory
         for candidate_arch in candidate_dirs:
             arch_pkg_dir = os.path.join(packages_root, candidate_arch)
-            bb.note(f"Looking for packages in {arch_pkg_dir} (arch dir: {candidate_arch})")
 
             if not os.path.isdir(arch_pkg_dir):
                 bb.warn(f"No buildhistory package dir for candidate_arch {candidate_arch}, skipping.")
                 continue
 
             pkgs = os.listdir(arch_pkg_dir)
-            bb.note(f"Found packages for candidate_arch {candidate_arch}: {pkgs}")
 
             if not pkgs:
                 bb.warn(f"No packages found for candidate_arch {candidate_arch}, skipping.")
                 continue
 
-            # Initialize architecture details
-            arch_details_file = os.path.join(tmpdir, f"{candidate_arch}-component-details.json")
+            # Extract layer type for optimized file naming
+            layer_type = extract_layer_type(candidate_arch)
+
+            # Initialize architecture details with layer-type-based naming
+            arch_details_file = os.path.join(tmpdir, f"{layer_type}-component-details.json")
             arch_pkg_details = {}
 
             if os.path.exists(arch_details_file):
@@ -319,7 +361,7 @@ python collect_component_info_eventhandler() {
                 except Exception as ex:
                     bb.warn(f"Failed to load existing {arch_details_file}: {ex}")
 
-            # Process each package
+            # Process each package sequentially
             for pkg_name in pkgs:
                 latest_path = find_package_latest(buildhistory_dir, candidate_arch, pkg_name)
                 if not latest_path:
@@ -344,16 +386,19 @@ python collect_component_info_eventhandler() {
 
                 arch_pkg_details[pkg_name] = [package_info]
 
-            # Write architecture details to file
+            # Write architecture details to file with layer type naming
             try:
                 with open(arch_details_file, 'w') as f:
                     json.dump(arch_pkg_details, f, indent=4)
-                bb.note(f"Wrote component details for arch {candidate_arch} to {arch_details_file}")
+                #bb.note(f"Created {arch_details_file}")
             except Exception as ex:
                 bb.warn(f"Error writing {arch_details_file}: {ex}")
 
-            # Create an MD file based on the arch_pkg_details
-            create_component_version_md_file(candidate_arch, arch_pkg_details)
+            # Create an MD file based on the arch_pkg_details with layer type naming
+            create_component_version_md_file(layer_type, arch_pkg_details)
 
-        bb.note("collect-component-info processing complete.")
+        end_time = time.time()
+        end_ms = int((end_time % 1) * 1000)
+        duration = end_time - start_time
+        bb.note(f"generate-rdke-component-info processing complete. Duration: {duration:.3f} seconds")
 }
