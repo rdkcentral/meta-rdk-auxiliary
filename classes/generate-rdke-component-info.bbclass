@@ -227,9 +227,8 @@ python generate_rdke_component_info_eventhandler() {
         try:
             # Extract package entries and create version strings with hyperlinks
             all_entries = []
-            for pkg_name, pkg_info_list in arch_pkg_details.items():
-                if pkg_info_list and len(pkg_info_list) > 0:
-                    pkg_info = pkg_info_list[0]
+            for pkg_name, pkg_info in arch_pkg_details.items():
+                if pkg_info:
                     pv = pkg_info.get('pv', '')
                     pr = pkg_info.get('pr', '')
                     if pv and pr:
@@ -384,7 +383,7 @@ python generate_rdke_component_info_eventhandler() {
                 if srcrev_data:
                     package_info["srcrev"] = srcrev_data
 
-                arch_pkg_details[pkg_name] = [package_info]
+                arch_pkg_details[pkg_name] = package_info
 
             # Write architecture details to file with layer type naming
             try:
