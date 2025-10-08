@@ -28,4 +28,4 @@ python lxc_populate_packages() {
 }
 
 PACKAGESPLITFUNCS:prepend = "lxc_populate_packages "
-FILES_${PN} += "/lxc/*"
+FILES:${PN} += "/lxc/*"
