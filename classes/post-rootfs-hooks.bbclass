@@ -44,7 +44,7 @@ update_build_type_property() {
 
 update_build_type_property_lab () {
      if [ -f "${R}/etc/device.properties" ]; then
-       sed -i 's/BUILD_TYPE=dev/BUILD_TYPE=labsigned/g' ${R}/etc/device.properties
+       sed -i 's/^BUILD_TYPE=.*/BUILD_TYPE=labsigned/g' ${R}/etc/device.properties
     fi
 }
 
