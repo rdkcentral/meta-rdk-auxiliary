@@ -21,7 +21,7 @@ python labSigned_image_hook(){
      bb.build.exec_func('cleanup_stunnel_socat', d)
      bb.build.exec_func('update_noshadow', d)
      bb.build.exec_func('disable_agetty', d)
-     bb.build.exec_function('update_build_type_property_lab', d)
+     bb.build.exec_func('update_build_type_property_lab', d)
 }
 python prod_image_hook(){
      bb.build.exec_func('common_prod_image_hook', d)
