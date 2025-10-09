@@ -3,6 +3,7 @@
 
 ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("DISTRO_FEATURES", "prod-variant", "prod_image_hook; ", "", d)}'
 ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("DISTRO_FEATURES", "prodlog-variant", "prodlog_image_hook; ", "", d)}'
+ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("DISTRO_FEATURES", "labSigned-variant", "labSigned_image_hook; ", "", d)}'
 ROOTFS_POSTPROCESS_COMMAND += " common_image_hook; "
 ROOTFS_POSTPROCESS_COMMAND += " create_NM_link; "
 ROOTFS_POSTPROCESS_COMMAND += " remove_hvec_asset; "
@@ -16,6 +17,12 @@ python common_prod_image_hook(){
      bb.build.exec_func('update_build_type_property', d)    
 }
 
+python labSigned_image_hook(){
+     bb.build.exec_func('cleanup_stunnel_socat', d)
+     bb.build.exec_func('update_noshadow', d)
+     bb.build.exec_func('disable_agetty', d)
+     bb.build.exec_function('update_build_type_property_lab', d)
+}
 python prod_image_hook(){
      bb.build.exec_func('common_prod_image_hook', d)
 }
@@ -32,6 +39,12 @@ python common_image_hook(){
 update_build_type_property() {
     if [ -f "${R}/etc/device.properties" ]; then
        sed -i 's/BUILD_TYPE=dev/BUILD_TYPE=prod/g' ${R}/etc/device.properties
+    fi
+}
+
+update_build_type_property_lab () {
+     if [ -f "${R}/etc/device.properties" ]; then
+       sed -i 's/BUILD_TYPE=dev/BUILD_TYPE=labsigned/g' ${R}/etc/device.properties
     fi
 }
 
