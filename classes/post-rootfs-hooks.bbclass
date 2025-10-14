@@ -18,10 +18,8 @@ python common_prod_image_hook(){
 }
 
 python labSigned_image_hook(){
-     bb.build.exec_func('cleanup_stunnel_socat', d)
-     bb.build.exec_func('update_noshadow', d)
-     bb.build.exec_func('disable_agetty', d)
-     bb.build.exec_func('update_build_type_property_lab', d)
+     bb.build.exec_func('common_prod_image_hook', d)
+     bb.build.exec_func('update_labsigned_property', d)
 }
 python prod_image_hook(){
      bb.build.exec_func('common_prod_image_hook', d)
@@ -42,10 +40,10 @@ update_build_type_property() {
     fi
 }
 
-update_build_type_property_lab () {
+update_labsigned_property() {
      if [ -f "${R}/etc/device.properties" ]; then
-       sed -i 's/^BUILD_TYPE=.*/BUILD_TYPE=labsigned/g' ${R}/etc/device.properties
-    fi
+        sed -i 's/^LABSIGNED_ENABLED=false/LABSIGNED_ENABLED=true/g' ${R}/etc/device.properties
+     fi
 }
 
 cleanup_stunnel_socat () {
