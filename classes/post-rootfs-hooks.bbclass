@@ -123,4 +123,11 @@ modify_NM() {
     if [ -f "${R}/etc/NetworkManager/NetworkManager.conf" ]; then
         sed -i "s/dns=dnsmasq//g" ${R}/etc/NetworkManager/NetworkManager.conf
     fi
+    if [ -f "${R}/lib/systemd/system/NetworkManager.service" ]; then
+        sed -i "s/NetworkManager/secure\/NetworkManager/g" ${R}/lib/systemd/system/NetworkManager.service
+    fi
+    if [ -L "${R}/etc/NetworkManager/system-connections" ]; then
+        rm -f ${R}/etc/NetworkManager/system-connections
+        ln -s /opt/secure/NetworkManager/system-connections ${R}/etc/NetworkManager/
+    fi
 }
