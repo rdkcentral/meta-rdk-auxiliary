@@ -42,7 +42,7 @@ update_build_type_property() {
 
 enable_debugService_property() {
      if [ -f "${R}/etc/device.properties" ]; then
-        sed -i 's/^DBGSERVICES_ENABLED=false/DBGSERVICES_ENABLED=true/g' ${R}/etc/device.properties
+        sed -i 's/^DBGBUILD_PRODHW=false/DBGBUILD_PRODHW=true/g' ${R}/etc/device.properties
      fi
 }
 
