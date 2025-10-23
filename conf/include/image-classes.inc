@@ -8,7 +8,7 @@ IMAGE_CLASSES += "update-device-properties"
 IMAGE_CLASSES += "${@bb.utils.contains('DISTRO_FEATURES', 'ENABLE_CLOC', 'cloc-report', '', d)}"
 
 # Install performance and debug tools for Dev builds only
-IMAGE_CLASSES += "${@bb.utils.contains('DISTRO_FEATURES', 'debug-variant', 'perfomance-debug-tools-packages', '', d)}"
+IMAGE_CLASSES += "perfomance-debug-tools-packages"
 
 IMAGE_CLASSES +="logrotate_inconfig"
 
