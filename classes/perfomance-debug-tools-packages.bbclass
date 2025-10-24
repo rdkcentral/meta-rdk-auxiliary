@@ -3,5 +3,6 @@ IMAGE_INSTALL:append = "${@bb.utils.contains('BUILD_VARIANT', 'debug', d.getVar(
 
 #Install memcapture to all the builds as per RDK-59546
 IMAGE_INSTALL:append = " memcapture"
+IMAGE_INSTALL:remove_rpi = " memcapture"
 
 IMAGE_INSTALL:append = "${@bb.utils.contains('BUILD_VARIANT', 'debug', " systemd-analyze", "", d)}" 
