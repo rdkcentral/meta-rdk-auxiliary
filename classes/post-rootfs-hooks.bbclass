@@ -3,7 +3,7 @@
 
 ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("DISTRO_FEATURES", "prod-variant", "prod_image_hook; ", "", d)}'
 ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("DISTRO_FEATURES", "prodlog-variant", "prodlog_image_hook; ", "", d)}'
-ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("DISTRO_FEATURES", "LabSigned-variant", "LabSigned_image_hook; ", "", d)}'
+ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("DISTRO_FEATURES", "labSigned-variant", "labSigned_image_hook; ", "", d)}'
 ROOTFS_POSTPROCESS_COMMAND += " common_image_hook; "
 ROOTFS_POSTPROCESS_COMMAND += " create_NM_link; "
 ROOTFS_POSTPROCESS_COMMAND += " remove_hvec_asset; "
@@ -17,7 +17,7 @@ python common_prod_image_hook(){
      bb.build.exec_func('update_build_type_property', d)    
 }
 
-python LabSigned_image_hook(){
+python labSigned_image_hook(){
      bb.build.exec_func('common_prod_image_hook', d)
      bb.build.exec_func('enable_debugService_property', d)
 }
