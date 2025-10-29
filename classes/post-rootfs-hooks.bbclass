@@ -27,7 +27,7 @@ python prodlog_image_hook(){
 python common_image_hook(){
      bb.build.exec_func('cleanup_amznsshlxybundl', d)
      bb.build.exec_func('add_network_dependency_for_ntp_client', d)
-     bb.build.exec_func('set_journald_storage_none', d)
+     bb.build.exec_func('strip_logging', d)
 }
 
 update_build_type_property() {
@@ -106,6 +106,8 @@ add_network_dependency_for_ntp_client() {
          fi
      fi
 }
-set_journald_storage_none() {
+strip_logging() {
+     rm ${R}/usr/sbin/logrotate
+     sed -i '' '/^LOG\.RDK\.DEFAULT=/ { s/.*/LOG.RDK.DEFAULT=NONE/; b }; $a\LOG.RDK.DEFAULT=NONE' /opt/debug.ini
      sed -i 's/Storage=.*/Storage=none/g' ${R}/etc/systemd/journald.conf
 }
