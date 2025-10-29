@@ -42,7 +42,7 @@ update_build_type_property() {
 
 enable_debugService_property() {
      if [ -f "${R}/etc/device.properties" ]; then
-        sed -i 's/^SignedLab_ENABLED=false/SignedLab_ENABLED=true/g' ${R}/etc/device.properties
+        sed -i 's/^LABSIGNED_ENABLED=false/LABSIGNED_ENABLED=true/g' ${R}/etc/device.properties
      fi
 }
 
