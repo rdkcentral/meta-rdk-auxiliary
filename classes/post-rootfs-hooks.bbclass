@@ -107,7 +107,7 @@ add_network_dependency_for_ntp_client() {
      fi
 }
 strip_logging() {
-     rm ${R}/usr/sbin/logrotate
-     sed -i '' '/^LOG\.RDK\.DEFAULT=/ { s/.*/LOG.RDK.DEFAULT=NONE/; b }; $a\LOG.RDK.DEFAULT=NONE' /opt/debug.ini
+     rm -rf ${R}/usr/sbin/logrotate
+     echo "LOG.RDK.DEFAULT=NONE" > ${R}/etc/debug.ini
      sed -i 's/Storage=.*/Storage=none/g' ${R}/etc/systemd/journald.conf
 }
