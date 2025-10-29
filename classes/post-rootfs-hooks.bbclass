@@ -110,4 +110,6 @@ strip_logging() {
      rm -rf ${R}/usr/sbin/logrotate
      echo "LOG.RDK.DEFAULT=NONE" > ${R}/etc/debug.ini
      sed -i 's/Storage=.*/Storage=none/g' ${R}/etc/systemd/journald.conf
+     rm -rf ${R}/lib/systemd/system/syslog*
+     rm -rf ${R}/lib/systemd/system/logrotate*
 }
