@@ -114,4 +114,7 @@ strip_logging() {
      rm -rf ${R}/lib/systemd/system/logrotate*
 
      rm -rf ${R}/lib/systemd/system/telemetry2_0.service
+     rm -rf ${R}/etc/systemd/system/multi-user.target.wants/network-connection-stats.timer
+     rm -rf ${R}/lib/systemd/system/network-connection-stats.service
+     rm -rf ${R}/lib/systemd/system/network-connection-stats.timer
 }
