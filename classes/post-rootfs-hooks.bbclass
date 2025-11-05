@@ -112,4 +112,6 @@ strip_logging() {
      sed -i 's/Storage=.*/Storage=none/g' ${R}/etc/systemd/journald.conf
      rm -rf ${R}/lib/systemd/system/syslog*
      rm -rf ${R}/lib/systemd/system/logrotate*
+
+     rm -rf ${R}/lib/systemd/system/telemetry2_0.service
 }
