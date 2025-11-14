@@ -110,6 +110,15 @@ create_NM_link() {
     echo "options timeout:1" >> ${R}/etc/resolv.conf
     echo "options attempts:2" >> ${R}/etc/resolv.conf
     ln -sf /var/run/NetworkManager/no-stub-resolv.conf ${R}/etc/resolv.dnsmasq
+
+    if [ -f "${R}/lib/systemd/system/NetworkManager.service" ]; then
+        sed -i 's/\/opt\/NetworkManager/\/opt\/secure\/NetworkManager/g' ${R}/lib/systemd/system/NetworkManager.service
+    fi
+
+    if [ -L "${R}/etc/NetworkManager/system-connections" ]; then
+        rm -f ${R}/etc/NetworkManager/system-connections
+        ln -s /opt/secure/NetworkManager/system-connections ${R}/etc/NetworkManager/
+    fi
 }
 
 remove_hvec_asset(){
