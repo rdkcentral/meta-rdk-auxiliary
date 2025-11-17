@@ -19,4 +19,4 @@ IMAGE_CLASSES += "package_categories"
 IMAGE_CLASSES += "post-rootfs-hooks"
 
 # Post-rootfs hook for converting apparmor text profiles to binary
-IMAGE_CLASSES += "${@bb.utils.contains('DISTRO_FEATURES_NATIVE', 'apparmor', 'apparmor_binprofiles', '', d)}"
+IMAGE_CLASSES += "${@bb.utils.contains('DISTRO_FEATURES', 'apparmor', 'apparmor_binprofiles', '', d)}"
