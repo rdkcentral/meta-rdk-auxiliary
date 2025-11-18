@@ -12,6 +12,8 @@ IMAGE_CLASSES += "${@bb.utils.contains('DISTRO_FEATURES', 'debug-variant', 'perf
 
 IMAGE_CLASSES +="logrotate_inconfig"
 
+IMAGE_CLASSES +="remotedebugger_json_merger"
+
 # Rootfs Audit Report
 IMAGE_CLASSES += "package_categories"
 
