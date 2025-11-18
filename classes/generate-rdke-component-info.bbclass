@@ -162,8 +162,10 @@ python __anonymous() {
             rdke_log(f"RDKE setup completed - marker created", "INFO", d)
         except Exception as e:
             rdke_log(f"Failed to create RDKE setup marker: {e}", "WARN", d)
+    else:
+        rdke_log(f"RDKE configured for qualifying recipe: {pn}", "DEBUG", d)
 
-    rdke_log(f"RDKE configured for qualifying recipe: {pn}", "DEBUG", d)
+    #rdke_log(f"RDKE configured for qualifying recipe: {pn}", "DEBUG", d)
 }
 
 # Add recipe-level data collection task
@@ -176,6 +178,7 @@ python do_collect_component_data() {
 
     # Skip native and nativesdk recipes
     if bb.data.inherits_class('native', d) or bb.data.inherits_class('nativesdk', d):
+        rdke_log(f"do_collect_component_data skipping {pn} since it inherits native.", "DEBUG", d)
         return
 
     # Check if we need component collection at all
@@ -186,6 +189,7 @@ python do_collect_component_data() {
     # Early package architecture check
     package_arch = d.getVar('PACKAGE_ARCH') or ""
     if target_layer_arch not in package_arch:
+        rdke_log(f"do_collect_component_data skipping {pn} due to ARCH mismatch.", "DEBUG", d)
         return  # Skip recipes that don't match target architecture
 
     rdke_log(f"Component data collection task executing for recipe: {pn}", "INFO", d)
@@ -220,30 +224,38 @@ python do_collect_component_data() {
     # Extract SRCREV information (using buildhistory approach)
     srcrev_data = {}
 
-    try:
-        import bb.fetch2
-        fetcher = bb.fetch2.Fetch(d.getVar('SRC_URI').split(), d)
-        urldata = fetcher.ud
+    # Only try to extract SRCREV if SRC_URI is not empty
+    if srcuri:
+        try:
+            import bb.fetch2
+            fetcher = bb.fetch2.Fetch(srcuri.split(), d)
+            urldata = fetcher.ud
 
-        scms = []
-        for u in urldata:
-            if urldata[u].method.supports_srcrev():
-                scms.append(u)
+            scms = []
+            for u in urldata:
+                if urldata[u].method.supports_srcrev():
+                    scms.append(u)
 
-        for scm in scms:
-            ud = urldata[scm]
-            for name in ud.names:
-                autoinc, rev = ud.method.sortable_revision(ud, d, name)
-                if name == "default":
-                    srcrev_data['SRCREV'] = rev
-                else:
-                    srcrev_data[f'SRCREV_{name}'] = rev
+            for scm in scms:
+                ud = urldata[scm]
+                for name in ud.names:
+                    autoinc, rev = ud.method.sortable_revision(ud, d, name)
+                    if name == "default":
+                        srcrev_data['SRCREV'] = rev
+                    else:
+                        srcrev_data[f'SRCREV_{name}'] = rev
 
-    except Exception as ex:
-        rdke_log(f"Failed to extract SRCREV via fetcher for {pkg_pn}, using fallback: {ex}", "WARN", d)
+        except Exception as ex:
+            rdke_log(f"Failed to extract SRCREV via fetcher for {pkg_pn}, using fallback: {ex}", "WARN", d)
+            srcrev = d.getVar('SRCREV')
+            if srcrev and srcrev != 'INVALID':
+                srcrev_data['SRCREV'] = srcrev
+    else:
+        # For packages with empty SRC_URI (like packagegroups), check if SRCREV exists
         srcrev = d.getVar('SRCREV')
         if srcrev and srcrev != 'INVALID':
             srcrev_data['SRCREV'] = srcrev
+        # Note: packagegroups typically have no SRCREV at all, which is normal
 
     rdke_log(f"Extracted recipe data for {pkg_pn}: PV={pkg_pv}, PR={pkg_pr}, SRCREV_count={len(srcrev_data)}", "DEBUG", d)
 
@@ -260,22 +272,33 @@ python do_collect_component_data() {
 
     # Use SimpleCache to store component data
     try:
+        rdke_log(f"Starting cache storage for {pkg_pn} with target_layer_arch='{target_layer_arch}'", "INFO", d)
+
         # Make a copy of cache data to modify
         updated_data = copy.deepcopy(cache_data)
+        rdke_log(f"Cache data copied, current components count: {len(updated_data.get('components', {}))}", "DEBUG", d)
 
         # Use target_layer_arch as namespace (keeping same logic as original)
         arch_namespace = target_layer_arch or 'default'
+        rdke_log(f"Using arch_namespace: '{arch_namespace}' for {pkg_pn}", "DEBUG", d)
 
         # Ensure components key exists
         if 'components' not in updated_data:
             updated_data['components'] = {}
+            rdke_log(f"Initialized components key in cache data", "DEBUG", d)
 
         # Initialize namespace if needed
         if arch_namespace not in updated_data['components']:
             updated_data['components'][arch_namespace] = {}
+            rdke_log(f"Initialized namespace '{arch_namespace}' in cache", "DEBUG", d)
+        else:
+            existing_count = len(updated_data['components'][arch_namespace])
+            rdke_log(f"Namespace '{arch_namespace}' already exists with {existing_count} components", "DEBUG", d)
 
         # Store recipe data in structured format
         updated_data['components'][arch_namespace][pkg_pn] = recipe_data
+        new_count = len(updated_data['components'][arch_namespace])
+        rdke_log(f"Added {pkg_pn} to namespace '{arch_namespace}', new count: {new_count}", "INFO", d)
 
         # Update metadata
         if 'architectures' not in updated_data:
@@ -289,8 +312,9 @@ python do_collect_component_data() {
         cache_dir = os.path.join(tmpdir, "cache")
         expected_cache_path = os.path.join(cache_dir, "rdke_component_data.dat")
 
-        rdke_log(f"About to save cache data. Cache dir exists: {os.path.exists(cache_dir)}", "DEBUG", d)
+        rdke_log(f"About to save cache data for {pkg_pn}. Cache dir exists: {os.path.exists(cache_dir)}", "DEBUG", d)
         rdke_log(f"Cache dir permissions: {oct(os.stat(cache_dir).st_mode) if os.path.exists(cache_dir) else 'N/A'}", "DEBUG", d)
+        rdke_log(f"Total components to save: {sum(len(arch_data) for arch_data in updated_data['components'].values())}", "INFO", d)
 
         try:
             # Ensure cache directory exists
@@ -298,16 +322,40 @@ python do_collect_component_data() {
                 rdke_log(f"Creating cache directory: {cache_dir}", "DEBUG", d)
                 os.makedirs(cache_dir, exist_ok=True)
 
+            # Log cache state before save
+            cache_state = {arch: list(arch_data.keys()) for arch, arch_data in updated_data['components'].items()}
+            rdke_log(f"Cache state before save: {cache_state}", "DEBUG", d)
+
             component_cache.save(updated_data)
-            rdke_log(f"Cache save() completed without exception", "DEBUG", d)
+            rdke_log(f"Cache save() completed successfully for {pkg_pn}", "INFO", d)
         except Exception as save_ex:
-            rdke_log(f"Cache save failed with exception: {save_ex}", "ERROR", d)
+            rdke_log(f"Cache save failed for {pkg_pn} with exception: {save_ex}", "ERROR", d)
+            import traceback
+            rdke_log(f"Save exception traceback: {traceback.format_exc()}", "ERROR", d)
             raise save_ex
 
-        # Debug: Verify cache file was created
+        # Debug: Verify cache file was created and verify contents
         rdke_log(f"Cache file exists after save: {os.path.exists(expected_cache_path)}", "DEBUG", d)
         if os.path.exists(expected_cache_path):
-            rdke_log(f"Cache file size: {os.path.getsize(expected_cache_path)} bytes", "DEBUG", d)
+            file_size = os.path.getsize(expected_cache_path)
+            rdke_log(f"Cache file size: {file_size} bytes", "DEBUG", d)
+
+            # Verify cache contents by re-reading
+            try:
+                verify_cache = bb.cache.SimpleCache(d.getVar("RDKE_COMPONENT_CACHE_VERSION") or "1.0")
+                verify_data = verify_cache.init_cache(d, "rdke_component_data.dat", {})
+                verify_components = verify_data.get('components', {})
+                verify_total = sum(len(arch_data) for arch_data in verify_components.values())
+                rdke_log(f"Cache verification: {verify_total} total components after save", "INFO", d)
+
+                # Check if our specific package was saved
+                if arch_namespace in verify_components and pkg_pn in verify_components[arch_namespace]:
+                    rdke_log(f"VERIFIED: {pkg_pn} successfully stored in cache under '{arch_namespace}'", "INFO", d)
+                else:
+                    rdke_log(f"WARNING: {pkg_pn} NOT found in cache after save!", "WARN", d)
+
+            except Exception as verify_ex:
+                rdke_log(f"Cache verification failed: {verify_ex}", "WARN", d)
         else:
             # List what's actually in the cache directory
             if os.path.exists(cache_dir):
@@ -325,7 +373,7 @@ python do_collect_component_data() {
 }
 
 # Add the task globally - it will only execute for qualifying recipes due to early returns
-addtask do_collect_component_data after do_prepare_recipe_sysroot before do_compile
+addtask do_collect_component_data after do_package
 
 do_collect_component_data[network] = "1"
 do_collect_component_data[nostamp] = "1"
@@ -389,28 +437,191 @@ def analyze_srcuri_type(srcuri):
         rdke_log(f"Error analyzing SRC_URI type: {ex}", "WARN")
         return 'unknown', None
 
-def extract_git_repo_info(srcuri):
-    """Extract base repository URL from git SRC_URI."""
+def extract_git_repo_info_for_name(srcuri, repo_name=None):
+    """Extract repository URL for a specific named repository from git SRC_URI."""
     if not srcuri:
         return None
 
     try:
         import bb.fetch2
+        # Split the SRC_URI into individual URLs (space-separated)
         urls = srcuri.split()
 
         for url in urls:
-            type, host, path, user, pswd, parm = bb.fetch2.decodeurl(url)
-            if 'git' in type or type == 'gitsm':
-                # Build base repo URL for GitHub/GitLab style repos
-                if host and path:
-                    # Remove .git extension if present
-                    if path.endswith('.git'):
-                        path = path[:-4]
-                    return f"https://{host}{path}"
+            # Skip file:// URLs (patches)
+            if url.startswith('file://'):
+                continue
 
+            try:
+                type, host, path, user, pswd, parm = bb.fetch2.decodeurl(url)
+                rdke_log(f"Decoded URL: type={type}, host={host}, path={path}, parm={parm}", "DEBUG")
+
+                if 'git' in type or type == 'gitsm':
+                    # Check if this URL matches the requested repo name
+                    url_name = parm.get('name', 'default')
+                    rdke_log(f"URL name: {url_name}, looking for: {repo_name}", "DEBUG")
+
+                    if repo_name is None or url_name == repo_name:
+                        # Build base repo URL
+                        if host and path:
+                            # Remove .git extension if present
+                            if path.endswith('.git'):
+                                path = path[:-4]
+
+                            # Build the repository URL
+                            repo_url = f"https://{host}{path}"
+                            rdke_log(f"Built repository URL: {repo_url}", "DEBUG")
+                            return repo_url
+            except Exception as e:
+                rdke_log(f"Error decoding URL {url}: {e}", "DEBUG")
+                continue
+
+        rdke_log(f"No matching URL found for repo_name: {repo_name}", "DEBUG")
         return None
-    except Exception:
+    except Exception as e:
+        rdke_log(f"Exception in extract_git_repo_info_for_name: {e}", "DEBUG")
         return None
+
+def should_expand_package_rows(pkg_info):
+    """Determine if a package should be expanded into multiple rows based on named SRCREVs."""
+    srcrev_data = pkg_info.get('srcrev', {}) or pkg_info.get('srcrevs', {})
+
+    if not srcrev_data or len(srcrev_data) <= 1:
+        return False
+
+    # Check if we have multiple named SRCREVs (SRCREV_name pattern)
+    named_srcrevs = [key for key in srcrev_data.keys() if key.startswith('SRCREV_') and key != 'SRCREV']
+
+    # Expand if we have 2 or more named SRCREVs
+    return len(named_srcrevs) >= 2
+
+def create_package_rows(pkg_info, srcuri_type, artifact_url=None, d=None):
+    """Create one or more table rows for a package, expanding multi-repo packages."""
+    pkg_name = pkg_info.get('package-name', '')
+    srcrev_data = pkg_info.get('srcrev', {}) or pkg_info.get('srcrevs', {})
+
+    rows = []
+
+    if should_expand_package_rows(pkg_info):
+        # Multi-repo package - create single row with combined version information
+        named_srcrevs = [(key, value) for key, value in srcrev_data.items()
+                        if key.startswith('SRCREV_') and key != 'SRCREV']
+
+        # Sort for consistent ordering
+        named_srcrevs.sort(key=lambda x: x[0])
+
+        version_parts = []
+
+        for i, (srcrev_key, srcrev_value) in enumerate(named_srcrevs):
+            repo_name = srcrev_key.replace('SRCREV_', '')
+
+            rdke_log(f"Creating hyperlink for {pkg_name} repo {repo_name}: srcrev_value={srcrev_value}", "INFO", d)
+
+            # Create version hyperlink for this specific repo
+            hyperlinked_version = create_version_hyperlink_for_repo(
+                pkg_info, srcuri_type, repo_name, srcrev_value, artifact_url
+            )
+
+            rdke_log(f"Generated hyperlinked_version for {repo_name}: {hyperlinked_version}", "INFO", d)
+
+            # Add repo name annotation
+            if srcuri_type == 'git' and '[' in hyperlinked_version and '](' in hyperlinked_version:
+                # This is a markdown link [text](url) - add repo name after it
+                hyperlinked_version += f" ({repo_name})"
+            else:
+                # Add repo name for non-linked versions
+                hyperlinked_version += f" ({repo_name})"
+
+            version_parts.append(hyperlinked_version)
+
+        # Combine all version parts with a separator
+        combined_version = " • ".join(version_parts)
+        rdke_log(f"Combined version for {pkg_name}: {combined_version}", "INFO", d)
+        rows.append((pkg_name, combined_version))
+    else:
+        # Single repo package - use existing logic
+        hyperlinked_version = create_version_hyperlink(pkg_info, srcuri_type, artifact_url)
+        rows.append((pkg_name, hyperlinked_version))
+
+    return rows
+
+def create_version_hyperlink_for_repo(pkg_info, srcuri_type, repo_name, srcrev_value, artifact_url=None):
+    """Create hyperlinked version for a specific repository in multi-repo packages."""
+    pv = pkg_info.get('pv', '')
+    pr = pkg_info.get('pr', '')
+    srcuri = pkg_info.get('srcuri', '')
+
+    rdke_log(f"create_version_hyperlink_for_repo called with: repo_name={repo_name}, srcrev_value={srcrev_value}, srcuri_type={srcuri_type}", "INFO")
+    rdke_log(f"pv={pv}, pr={pr}, srcuri={srcuri[:100]}...", "INFO")
+
+    if not pv or not pr:
+        return pv or 'unknown'
+
+    version = f"{pv}-{pr}"
+
+    # Handle layer-hosted packages
+    if srcuri_type == 'layer-hosted':
+        return f"{version} (layer hosted)"
+
+    # Handle artifacts
+    if srcuri_type == 'artifact' and artifact_url:
+        return f"[{version} (artifact)]({artifact_url})"
+
+    # Handle unknown/empty SRC_URI (packagegroups, virtual packages)
+    if srcuri_type == 'unknown':
+        return version
+
+    # Handle Git repositories
+    if srcuri_type == 'git':
+        # Get repository URL for this specific named repo
+        base_repo_url = extract_git_repo_info_for_name(srcuri, repo_name)
+        rdke_log(f"Extracted base_repo_url for {repo_name}: {base_repo_url}", "DEBUG")
+
+        if not base_repo_url:
+            # No repository URL could be extracted
+            rdke_log(f"No repository URL found for repo_name: {repo_name}", "DEBUG")
+            return version
+
+        rdke_log(f"Using base_repo_url: {base_repo_url}", "DEBUG")
+
+        if not srcrev_value or srcrev_value == 'INVALID':
+            # No SRCREV data, link to repository root
+            rdke_log(f"No valid SRCREV, linking to repo root", "DEBUG")
+            return f"[{version}]({base_repo_url})"
+
+        rdke_log(f"Processing SRCREV value: {srcrev_value} (length: {len(srcrev_value)})", "DEBUG")
+
+        # Try to extract actual commit hash from version if SRCREV doesn't look like a commit
+        actual_commit = srcrev_value
+        if not (len(srcrev_value) == 40 and srcrev_value.isalnum()):
+            # SRCREV doesn't look like a commit hash, try to extract from version
+            if "+git" in version and "_" in version:
+                parts = version.split("_")
+                for part in reversed(parts):
+                    if len(part) >= 8 and part.isalnum():
+                        actual_commit = part
+                        rdke_log(f"Extracted commit from version: {actual_commit}", "DEBUG")
+                        break
+
+        # Determine link type based on commit value
+        if len(actual_commit) >= 8 and actual_commit.isalnum():
+            # SHA commit (full or abbreviated)
+            commit_url = f"{base_repo_url}/commit/{actual_commit}"
+            rdke_log(f"Generated commit URL: {commit_url}", "DEBUG")
+            return f"[{version}]({commit_url})"
+        elif any(char.isdigit() for char in srcrev_value):
+            # Tag-like
+            tag_url = f"{base_repo_url}/releases/tag/{srcrev_value}"
+            rdke_log(f"Generated tag URL: {tag_url}", "DEBUG")
+            return f"[{version}]({tag_url})"
+        else:
+            # Branch or other - link to repository
+            rdke_log(f"Fallback to repo root link", "DEBUG")
+            return f"[{version}]({base_repo_url})"
+
+    # Fallback to plain version if no linkable info
+    rdke_log(f"Returning plain version: {version}", "DEBUG")
+    return version
 
 def create_version_hyperlink(pkg_info, srcuri_type, artifact_url=None):
     """Create hyperlinked version with preference: release > tag > sha, or artifact/layer-hosted."""
@@ -433,9 +644,13 @@ def create_version_hyperlink(pkg_info, srcuri_type, artifact_url=None):
     if srcuri_type == 'artifact' and artifact_url:
         return f"[{version} (artifact)]({artifact_url})"
 
+    # Handle unknown/empty SRC_URI (packagegroups, virtual packages)
+    if srcuri_type == 'unknown':
+        return version
+
     # Handle Git repositories
     if srcuri_type == 'git':
-        base_repo_url = extract_git_repo_info(srcuri)
+        base_repo_url = extract_git_repo_info_for_name(srcuri)
         if not base_repo_url:
             return version
 
@@ -443,74 +658,48 @@ def create_version_hyperlink(pkg_info, srcuri_type, artifact_url=None):
             # No SRCREV data, link to repository root
             return f"[{version}]({base_repo_url})"
 
-        # Handle multiple SRCREVs - prioritize in this order:
-        # 1. Default SRCREV
-        # 2. First tag-like SRCREV (non-40-char with digits)
-        # 3. First SHA-like SRCREV (40-char)
-        # 4. Any other SRCREV
+        # Handle single vs multiple SRCREVs
+        if len(srcrev_data) == 1:
+            # Single SRCREV - use original logic
+            srcrev_key, srcrev_value = next(iter(srcrev_data.items()))
 
-        default_srcrev = None
-        tag_like_srcrevs = []
-        sha_like_srcrevs = []
-        other_srcrevs = []
-
-        for srcrev_key, srcrev_value in srcrev_data.items():
-            if not srcrev_value:
-                continue
-
-            if srcrev_key == 'SRCREV':
-                default_srcrev = srcrev_value
-            elif len(srcrev_value) == 40 and srcrev_value.isalnum():
-                # Looks like a SHA commit hash
-                sha_like_srcrevs.append((srcrev_key, srcrev_value))
-            elif len(srcrev_value) != 40 and any(char.isdigit() for char in srcrev_value):
-                # Looks like a tag (not 40 chars and contains digits)
-                tag_like_srcrevs.append((srcrev_key, srcrev_value))
-            else:
-                # Other types (branch names, etc.)
-                other_srcrevs.append((srcrev_key, srcrev_value))
-
-        # Priority 1: Use default SRCREV if available
-        if default_srcrev:
-            if len(default_srcrev) == 40 and default_srcrev.isalnum():
+            if len(srcrev_value) == 40 and srcrev_value.isalnum():
                 # SHA commit
-                commit_url = f"{base_repo_url}/commit/{default_srcrev}"
+                commit_url = f"{base_repo_url}/commit/{srcrev_value}"
                 return f"[{version}]({commit_url})"
-            elif any(char.isdigit() for char in default_srcrev):
+            elif any(char.isdigit() for char in srcrev_value):
                 # Tag-like
-                tag_url = f"{base_repo_url}/releases/tag/{default_srcrev}"
+                tag_url = f"{base_repo_url}/releases/tag/{srcrev_value}"
                 return f"[{version}]({tag_url})"
             else:
                 # Branch or other - link to repository
                 return f"[{version}]({base_repo_url})"
-
-        # Priority 2: Use first tag-like SRCREV
-        if tag_like_srcrevs:
-            srcrev_key, srcrev_value = tag_like_srcrevs[0]
-            tag_url = f"{base_repo_url}/releases/tag/{srcrev_value}"
-            if len(tag_like_srcrevs) > 1:
-                # Multiple tags, add annotation
-                return f"[{version}]({tag_url}) (primary: {srcrev_key})"
+        else:
+            # Multiple SRCREVs - prioritize and add annotation
+            default_srcrev = srcrev_data.get('SRCREV')
+            if default_srcrev:
+                # Use default SRCREV
+                if len(default_srcrev) == 40 and default_srcrev.isalnum():
+                    commit_url = f"{base_repo_url}/commit/{default_srcrev}"
+                    return f"[{version}]({commit_url})"
+                elif any(char.isdigit() for char in default_srcrev):
+                    tag_url = f"{base_repo_url}/releases/tag/{default_srcrev}"
+                    return f"[{version}]({tag_url})"
+                else:
+                    return f"[{version}]({base_repo_url})"
             else:
-                return f"[{version}]({tag_url})"
+                # Use first named SRCREV
+                first_key, first_value = next(iter(srcrev_data.items()))
+                repo_name = first_key.replace('SRCREV_', '') if first_key.startswith('SRCREV_') else 'default'
 
-        # Priority 3: Use first SHA-like SRCREV
-        if sha_like_srcrevs:
-            srcrev_key, srcrev_value = sha_like_srcrevs[0]
-            commit_url = f"{base_repo_url}/commit/{srcrev_value}"
-            if len(sha_like_srcrevs) > 1:
-                # Multiple SHAs, add annotation
-                return f"[{version}]({commit_url}) (primary: {srcrev_key})"
-            else:
-                return f"[{version}]({commit_url})"
-
-        # Priority 4: Use any other SRCREV or fallback to repo
-        if other_srcrevs:
-            # Non-linkable SRCREV (like branch name), link to repository
-            return f"[{version}]({base_repo_url})"
-
-        # Fallback: link to repository root
-        return f"[{version}]({base_repo_url})"
+                if len(first_value) == 40 and first_value.isalnum():
+                    commit_url = f"{base_repo_url}/commit/{first_value}"
+                    return f"[{version}]({commit_url}) (primary: {first_key})"
+                elif any(char.isdigit() for char in first_value):
+                    tag_url = f"{base_repo_url}/releases/tag/{first_value}"
+                    return f"[{version}]({tag_url}) (primary: {first_key})"
+                else:
+                    return f"[{version}]({base_repo_url}) (primary: {first_key})"
 
     # Fallback to plain version if no linkable info
     return version
@@ -643,12 +832,25 @@ python generate_rdke_component_info_eventhandler() {
                     for pkg in sorted_packages:
                         pkg_name = pkg.get('package-name', '')
                         srcuri = pkg.get('srcuri', '')
+                        srcrev_data = pkg.get('srcrev', {}) or pkg.get('srcrevs', {})
 
-                        # Analyze SRC_URI type and create hyperlinked version
+                        # Log details for packages with multiple SRCREVs
+                        if len(srcrev_data) > 1:
+                            rdke_log(f"Processing {pkg_name} with {len(srcrev_data)} SRCREVs: {list(srcrev_data.keys())}", "DEBUG", d)
+
+                        # Analyze SRC_URI type
                         srcuri_type, artifact_url = analyze_srcuri_type(srcuri)
-                        hyperlinked_version = create_version_hyperlink(pkg, srcuri_type, artifact_url)
 
-                        md_content.append(f"| {pkg_name} | {hyperlinked_version} |")
+                        # Create one or more rows for this package
+                        package_rows = create_package_rows(pkg, srcuri_type, artifact_url, d)
+
+                        # Log expansion details
+                        if len(package_rows) > 1:
+                            rdke_log(f"Expanded {pkg_name} into {len(package_rows)} rows for multi-repo documentation", "INFO", d)
+
+                        # Add all rows to the markdown content
+                        for row_pkg_name, hyperlinked_version in package_rows:
+                            md_content.append(f"| {row_pkg_name} | {hyperlinked_version} |")
 
                     # Write MD file
                     with open(md_filepath, 'w') as f:
