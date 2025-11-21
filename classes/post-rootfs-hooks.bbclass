@@ -85,6 +85,7 @@ create_NM_link() {
     echo "nameserver 127.0.0.1" > ${R}/etc/resolv.conf
     echo "options timeout:1" >> ${R}/etc/resolv.conf
     echo "options attempts:2" >> ${R}/etc/resolv.conf
+    ln -sf /lib/systemd/system/named.service ${R}/etc/systemd/system/multi-user.target.wants/named.service
 }
 
 remove_hvec_asset(){
