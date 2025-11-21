@@ -85,7 +85,6 @@ create_NM_link() {
     echo "nameserver 127.0.0.1" > ${R}/etc/resolv.conf
     echo "options timeout:1" >> ${R}/etc/resolv.conf
     echo "options attempts:2" >> ${R}/etc/resolv.conf
-    ln -sf /var/run/NetworkManager/no-stub-resolv.conf ${R}/etc/resolv.dnsmasq
 }
 
 remove_hvec_asset(){
