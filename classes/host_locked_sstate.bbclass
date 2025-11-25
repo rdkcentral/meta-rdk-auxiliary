@@ -45,7 +45,7 @@ def get_locked_sig_file(d):
         sigs_file = "locked-sigs_rdk-arm64.inc"
     elif "armv7athf-neon" in default_tune:
         sigs_file = "locked-sigs_rdk-arm7a.inc"
-    elif "armv7vethf-neon" in default_tune :
+    elif "armv7vethf-neon" in default_tune:
         sigs_file = "locked-sigs_rdk-arm7ve.inc"
     else:
         sigs_file = default_sigs_file
@@ -53,7 +53,7 @@ def get_locked_sig_file(d):
     if os.path.exists(sigs_file_path):
         return sigs_file_path
     else:
-        bb.fatal("ERROR: The expected locked sigs file(%s) is not found" %sigs_file_path)
+        bb.fatal("ERROR: The expected locked sigs file(%s) is not found" % sigs_file_path)
 
 SIG_FILE = "${@get_locked_sig_file(d)}"
 include ${SIG_FILE}
