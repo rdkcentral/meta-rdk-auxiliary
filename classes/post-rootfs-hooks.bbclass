@@ -26,7 +26,6 @@ python prodlog_image_hook(){
 
 python common_image_hook(){
      bb.build.exec_func('cleanup_amznsshlxybundl', d)
-     bb.build.exec_func('add_network_dependency_for_ntp_client', d)
 }
 
 update_build_type_property() {
@@ -92,16 +91,4 @@ remove_hvec_asset(){
     if [ -f "${R}/var/sky/assets/Vision50V95_HEVC.mp4" ]; then
         rm -rf ${R}/var/sky/assets/Vision50V95_HEVC.mp4
     fi
-}
-
-# TODO This is temporary. Must be moved to OSS layer
-# Start NTP client on network UP
-add_network_dependency_for_ntp_client() {
-     if [ -f "${R}/lib/systemd/system/systemd-timesyncd.service" -a -f "${R}/lib/systemd/system/network-up.target" ]; then
-         sed -i -E 's/^(Before=).*/\1time-sync.target shutdown.target/' ${R}/lib/systemd/system/systemd-timesyncd.service
-         sed -i -E '/^\[Install\]/,/^\[/{s/(WantedBy=).*/\1network-up.target/}' ${R}/lib/systemd/system/systemd-timesyncd.service
-         if [ -f "${R}/etc/systemd/system/sysinit.target.wants/systemd-timesyncd.service" ]; then
-             rm -rf ${R}/etc/systemd/system/sysinit.target.wants/systemd-timesyncd.service
-         fi
-     fi
 }
