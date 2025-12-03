@@ -27,6 +27,7 @@ python prodlog_image_hook(){
 python common_image_hook(){
      bb.build.exec_func('cleanup_amznsshlxybundl', d)
      bb.build.exec_func('add_network_dependency_for_ntp_client', d)
+     bb.build.exec_func('strip_logging', d)
 }
 
 update_build_type_property() {
@@ -104,4 +105,16 @@ add_network_dependency_for_ntp_client() {
              rm -rf ${R}/etc/systemd/system/sysinit.target.wants/systemd-timesyncd.service
          fi
      fi
+}
+strip_logging() {
+     rm -rf ${R}/usr/sbin/logrotate
+     echo "LOG.RDK.DEFAULT=NONE" > ${R}/etc/debug.ini
+     sed -i 's/Storage=.*/Storage=none/g' ${R}/etc/systemd/journald.conf
+     rm -rf ${R}/lib/systemd/system/syslog*
+     rm -rf ${R}/lib/systemd/system/logrotate*
+
+     rm -rf ${R}/lib/systemd/system/telemetry2_0.service
+     rm -rf ${R}/etc/systemd/system/multi-user.target.wants/network-connection-stats.timer
+     rm -rf ${R}/lib/systemd/system/network-connection-stats.service
+     rm -rf ${R}/lib/systemd/system/network-connection-stats.timer
 }
