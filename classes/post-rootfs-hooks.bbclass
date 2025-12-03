@@ -12,7 +12,6 @@ R = "${IMAGE_ROOTFS}"
 python common_prod_image_hook(){
      bb.build.exec_func('cleanup_stunnel_socat', d)
      bb.build.exec_func('update_noshadow', d)
-     bb.build.exec_func('disable_agetty', d)
      bb.build.exec_func('update_build_type_property', d)    
 }
 
