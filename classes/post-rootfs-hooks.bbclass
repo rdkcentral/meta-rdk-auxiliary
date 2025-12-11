@@ -144,8 +144,5 @@ if [ "$BUILD_TYPE" != "prod" ]; then\
           $IPV4_BIN -I INPUT --dport 8023 -j ACCEPT\
           $IPV4_BIN -I INPUT --dport 8090 -j ACCEPT\
 fi\
-BUILD_TYPE="$tmpBT"' "$target"
-    else
-        bberror "iptables_init not found at $target; open_ports skipped"
-    fi
+BUILD_TYPE="$tmpBT"' ${R}/lib/rdk/iptables_init
 }
