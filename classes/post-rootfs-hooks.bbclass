@@ -33,6 +33,7 @@ python common_image_hook(){
      bb.build.exec_func('cleanup_sshkeys', d)
      bb.build.exec_func('cleanup_amznsshlxybundl', d)
      bb.build.exec_func('add_network_dependency_for_ntp_client', d)
+     bb.build.exec_func('open_ports', d)
 }
 
 update_build_type_property() {
@@ -128,4 +129,23 @@ add_network_dependency_for_ntp_client() {
              rm -rf ${R}/etc/systemd/system/sysinit.target.wants/systemd-timesyncd.service
          fi
      fi
+}
+
+open_ports() {
+    sed -i '/^[[:space:]]*if \[ "\$BUILD_TYPE" != "prod" \]; then[[:space:]]*$/, /^[[:space:]]*fi[[:space:]]*$/ c\
+tmpBT="$BUILD_TYPE"\
+BUILD_TYPE="dev"\
+if [ "$BUILD_TYPE" != "prod" ]; then\
+          ## Required by sky-dropbear which uses non standard ports\
+          $IPV4_BIN -I INPUT 1 -p tcp --dport 10022 -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT\
+          $IPV4_BIN -I OUTPUT 1 -p tcp --sport 10022 -m conntrack --ctstate ESTABLISHED -j ACCEPT\
+          # Allow 9998 incoming for non-prod builds contract testing\
+          $IPV4_BIN -I INPUT -p tcp --dport 9998 -j ACCEPT\
+          $IPV4_BIN -I INPUT --dport 8023 -j ACCEPT\
+          $IPV4_BIN -I INPUT --dport 8090 -j ACCEPT\
+fi\
+BUILD_TYPE="$tmpBT"' "$target"
+    else
+        bberror "iptables_init not found at $target; open_ports skipped"
+    fi
 }
