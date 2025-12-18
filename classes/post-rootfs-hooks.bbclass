@@ -12,6 +12,7 @@ R = "${IMAGE_ROOTFS}"
 
 python dev_image_hook(){
      bb.build.exec_func('copy_dev_sshkeys', d)
+     bb.build.exec_func('remove_scripts', d)
 }
 
 python common_prod_image_hook(){
