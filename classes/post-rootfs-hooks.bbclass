@@ -18,7 +18,8 @@ python common_prod_image_hook(){
      bb.build.exec_func('cleanup_stunnel_socat', d)
      bb.build.exec_func('update_noshadow', d)
      bb.build.exec_func('disable_agetty', d)
-     bb.build.exec_func('update_build_type_property', d)    
+     bb.build.exec_func('update_build_type_property', d)
+     bb.build.exec_func('remove_scripts', d)
 }
 
 python prod_image_hook(){
@@ -128,4 +129,32 @@ add_network_dependency_for_ntp_client() {
              rm -rf ${R}/etc/systemd/system/sysinit.target.wants/systemd-timesyncd.service
          fi
      fi
+}
+
+remove_scripts() {
+    ${R}/etc/apparmor/aar_telemetry.sh
+    ${R}/lib/rdk/cert-monitoring.sh
+    ${R}/lib/systemd/system/cert-monitoring.service
+    ${R}/lib/rdk/disk_threshold_check.sh
+    ${R}/lib/systemd/system/disk-threshold-check.service
+    ${R}/lib/rdk/getDeviceDetails.sh
+    ${R}/etc/systemd/system/multi-user.target.wants/update-device-details.service
+    ${R}/lib/systemd/system/update-device-details.service
+    ${R}/lib/rdk/netflixPreStart.sh
+    ${R}/lib/rdk/networkConnectionRecovery.sh
+    ${R}/lib/systemd/system/network-connection-stats.service
+    ${R}/lib/rdk/system_info_collector.sh
+    ${R}/lib/systemd/system/vitalprocess-info.service
+    ${R}/lib/systemd/system/system_info_collector.sh
+    ${R}/lib/rdk/uploadDumps.sh
+    ${R}/etc/systemd/system/multi-user.target.wants/coredump-secure-upload.service
+    ${R}/etc/systemd/system/multi-user.target.wants/coredump-upload.service
+    ${R}/etc/systemd/system/multi-user.target.wants/minidump-secure-upload.service
+    ${R}/etc/systemd/system/multi-user.target.wants/minidump-upload.service
+    ${R}/lib/systemd/system/coredump-secure-upload.service
+    ${R}/lib/systemd/system/coredump-upload.service
+    ${R}/lib/systemd/system/minidump-secure-upload.service
+    ${R}/lib/systemd/system/minidump-upload.service
+    ${R}/lib/rdk/uploadSTBLogs.sh
+    ${R}/lib/rdk/Start_MaintenanceTasks.sh
 }
