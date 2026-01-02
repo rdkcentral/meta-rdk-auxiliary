@@ -138,7 +138,6 @@ remove_scripts() {
     rm -rf ${R}/lib/systemd/system/cert-monitoring.service
     rm -rf ${R}/lib/rdk/disk_threshold_check.sh
     rm -rf ${R}/lib/systemd/system/disk-threshold-check.service
-    rm -rf ${R}/lib/rdk/getDeviceDetails.sh
     rm -rf ${R}/etc/systemd/system/multi-user.target.wants/update-device-details.service
     rm -rf ${R}/lib/systemd/system/update-device-details.service
     rm -rf ${R}/lib/rdk/netflixPreStart.sh
