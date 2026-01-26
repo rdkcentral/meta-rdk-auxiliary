@@ -7,7 +7,7 @@
 # Usage: Add 'INHERIT += "rdke-gpu-layer"' to your image recipe or configuration
 
 # Path to the GPU layer configuration JSON file
-RDKE_GPU_LAYER_CONFIG_JSON ?= "${VENDOR_RPI_LAYER_DIR}/conf/machine/include/rdke-gpu-layer-conf.json"
+RDKE_GPU_LAYER_CONFIG_JSON ?= "${VENDOR_LAYER_DIR}/conf/machine/include/rdke-gpu-layer-conf.json"
 
 # Enable verbose logging (set to "1" for detailed output)
 RDKE_GPU_LAYER_VERBOSE ?= "0"
