@@ -28,17 +28,14 @@ python rdke_gpu_layer_setup() {
 
         if missing_fields:
             bb.fatal(f"Invalid JSON schema. Missing required fields: {', '.join(missing_fields)}")
-            return False
 
         # Validate mount-rootfs-links structure
         if not isinstance(config['mount-rootfs-links'], dict):
             bb.fatal("'mount-rootfs-links' must be a dictionary")
-            return False
 
         for package, libs in config['mount-rootfs-links'].items():
             if not isinstance(libs, list):
                 bb.fatal(f"Libraries for package '{package}' must be a list")
-                return False
 
         return True
 
@@ -188,13 +185,12 @@ python rdke_gpu_layer_setup() {
     except json.JSONDecodeError as e:
         bb.fatal(f"Invalid JSON in {config_file}: {e}")
     except Exception as e:
-        bb.fatal(f"Failed to process RDKE GPU layer configuration: {e}")
         import traceback
-        bb.fatal(traceback.format_exc())
+        bb.fatal(f"Failed to process RDKE GPU layer configuration: {e}\n{traceback.format_exc()}")
 }
 
 # Add the function to rootfs post-process commands
-ROOTFS_POSTPROCESS_COMMAND += "rdke_gpu_layer_setup;"
+ROOTFS_POSTPROCESS_COMMAND += " rdke_gpu_layer_setup; "
 
 # Ensure dependencies are tracked
 do_rootfs[vardeps] += "RDKE_GPU_LAYER_CONFIG_JSON RDKE_GPU_LAYER_VERBOSE"
