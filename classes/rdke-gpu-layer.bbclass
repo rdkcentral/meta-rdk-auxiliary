@@ -23,11 +23,11 @@ python rdke_gpu_layer_setup() {
     import os
     from pathlib import Path
 
-    config_file = d.getVar('RDKE_GPU_LAYER_CONFIG_JSON')
-    rootfs = d.getVar('IMAGE_ROOTFS')
-    verbose = d.getVar('RDKE_GPU_LAYER_VERBOSE') == "1"
-    log_prefix = d.getVar('RDKE_GPU_LAYER_LOG_PREFIX') or "[rdke-gpu-layer]"
-    required_libs = (d.getVar('RDKE_GPU_LAYER_REQUIRED_LIBS') or "").split()
+    config_file = d.getVar('RDKE_GPU_LAYER_CONFIG_JSON', expand=True)
+    rootfs = d.getVar('IMAGE_ROOTFS', expand=True)
+    verbose = d.getVar('RDKE_GPU_LAYER_VERBOSE', expand=True) == "1"
+    log_prefix = d.getVar('RDKE_GPU_LAYER_LOG_PREFIX', expand=True) or "[rdke-gpu-layer]"
+    required_libs = (d.getVar('RDKE_GPU_LAYER_REQUIRED_LIBS', expand=True) or "").split()
 
     def validate_json_schema(config):
         """Validate the JSON configuration has required fields."""
