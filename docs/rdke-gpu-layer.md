@@ -44,7 +44,7 @@ The configuration JSON file must conform to the following schema:
   },
   "mount-rootfs-path": "<string>",
   "mount-rootfs-links": {
-    "madatory": {<dictionary>},
+    "mandatory": {<dictionary>},
     "optional": [<string array>]
   }
 }
@@ -108,14 +108,13 @@ All of the following fields are **mandatory** and will cause a fatal error if mi
 - **Type**: Object (Dictionary)
 - **Description**: Defines which libraries to link into the GPU layer rootfs
 - **Required Nested Fields**:
-  - `madatory` (mandatory - note the spelling)
+  - `mandatory` (mandatory)
 
-#### 8. `madatory`
+#### 8. `mandatory`
 - **Type**: Object (Dictionary)
 - **Parent**: `mount-rootfs-links`
 - **Description**: Dictionary of mandatory library mappings (key-value pairs)
 - **Format**: `"<link_name>": "<source_path>"`
-- **Note**: The key "madatory" uses this specific spelling as per the schema
 
 ### Optional Fields
 
@@ -146,7 +145,7 @@ All of the following fields are **mandatory** and will cause a fatal error if mi
   },
   "mount-rootfs-path": "/usr/share/gpu-layer/rootfs/usr/lib",
   "mount-rootfs-links": {
-    "madatory": {
+    "mandatory": {
       "libEGL.so": "/usr/lib/libEGL.so",
       "libEGL.so.1": "/usr/lib/libEGL.so.1.0.0",
       "libGLESv1_CM.so": "",
@@ -196,7 +195,7 @@ Creates file at `${IMAGE_ROOTFS}/usr/share/gpu-layer/config.json` with content:
 
 ### 2. Mandatory Libraries Processing
 
-For each entry in the `madatory` dictionary:
+For each entry in the `mandatory` dictionary:
 
 #### Behavior 1: When target path is specified (non-empty)
 
@@ -261,14 +260,14 @@ ${IMAGE_ROOTFS}/
 │           └── rootfs/
 │               └── usr/
 │                   └── lib/
-│                       ├── libEGL.so → libEGL.so.1.0.0          # Symlink (madatory)
-│                       ├── libEGL.so.1 → libEGL.so.1.0.0        # Symlink (madatory)
-│                       ├── libEGL.so.1.0.0                      # Hardlink (madatory)
-│                       ├── libGLESv2.so → libGLESv2.so.2.0.0    # Symlink (madatory)
-│                       ├── libGLESv2.so.2 → libGLESv2.so.2.0.0  # Symlink (madatory)
-│                       ├── libGLESv2.so.2.0.0                   # Hardlink (madatory)
-│                       ├── libwayland-egl.so.1 → libwayland...  # Symlink (madatory)
-│                       ├── libwayland-egl.so.1.0.0              # Hardlink (madatory)
+                       ├── libEGL.so → libEGL.so.1.0.0          # Symlink (mandatory)
+                       ├── libEGL.so.1 → libEGL.so.1.0.0        # Symlink (mandatory)
+                       ├── libEGL.so.1.0.0                      # Hardlink (mandatory)
+                       ├── libGLESv2.so → libGLESv2.so.2.0.0    # Symlink (mandatory)
+                       ├── libGLESv2.so.2 → libGLESv2.so.2.0.0  # Symlink (mandatory)
+                       ├── libGLESv2.so.2.0.0                   # Hardlink (mandatory)
+                       ├── libwayland-egl.so.1 → libwayland...  # Symlink (mandatory)
+                       ├── libwayland-egl.so.1.0.0              # Hardlink (mandatory)
 │                       ├── libglapi.so.0.0.0                    # Hardlink (optional)
 │                       ├── libffi.so.8.1.2                      # Hardlink (optional)
 │                       ├── libgbm.so.1.0.0                      # Hardlink (optional)

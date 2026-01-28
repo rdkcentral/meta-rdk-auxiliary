@@ -15,7 +15,7 @@ RDKE_GPU_LAYER_VERBOSE ?= "0"
 # Log prefix for all messages from this class
 RDKE_GPU_LAYER_LOG_PREFIX = "[rdke-gpu-layer]"
 
-# Required mandatory library keys that must be present in the 'madatory' section
+# Required mandatory library keys that must be present in the 'mandatory' section
 RDKE_GPU_LAYER_REQUIRED_LIBS = "libEGL.so libEGL.so.1 libGLESv1_CM.so libGLESv1_CM.so.1 libGLESv2.so libGLESv2.so.2 libwayland-egl.so.1"
 
 python rdke_gpu_layer_setup() {
@@ -69,16 +69,16 @@ python rdke_gpu_layer_setup() {
         rootfs_links = config['mount-rootfs-links']
 
         # Validate mandatory key
-        if 'madatory' not in rootfs_links:
-            bb.fatal(f"{log_prefix} 'madatory' is mandatory in 'mount-rootfs-links'")
-        if not isinstance(rootfs_links['madatory'], dict):
-            bb.fatal(f"{log_prefix} 'madatory' must be a dictionary")
+        if 'mandatory' not in rootfs_links:
+            bb.fatal(f"{log_prefix} 'mandatory' is mandatory in 'mount-rootfs-links'")
+        if not isinstance(rootfs_links['mandatory'], dict):
+            bb.fatal(f"{log_prefix} 'mandatory' must be a dictionary")
 
-        # Validate required library keys are present in madatory
-        madatory_libs = rootfs_links['madatory']
-        missing_required_libs = [lib for lib in required_libs if lib not in madatory_libs]
+        # Validate required library keys are present in mandatory
+        mandatory_libs = rootfs_links['mandatory']
+        missing_required_libs = [lib for lib in required_libs if lib not in mandatory_libs]
         if missing_required_libs:
-            bb.fatal(f"{log_prefix} Missing required library keys in 'madatory': {', '.join(missing_required_libs)}")
+            bb.fatal(f"{log_prefix} Missing required library keys in 'mandatory': {', '.join(missing_required_libs)}")
 
         # Validate optional key (if present)
         if 'optional' in rootfs_links and not isinstance(rootfs_links['optional'], list):
@@ -190,12 +190,12 @@ python rdke_gpu_layer_setup() {
         missing_optional_libraries = set()
 
         # Process mandatory libraries (dict with link_name: target_path mapping)
-        if 'madatory' in mount_rootfs_links:
+        if 'mandatory' in mount_rootfs_links:
             if verbose:
                 bb.note(f"{log_prefix} Processing mandatory libraries")
 
-            madatory_libs = mount_rootfs_links['madatory']
-            for link_name, target_path in madatory_libs.items():
+            mandatory_libs = mount_rootfs_links['mandatory']
+            for link_name, target_path in mandatory_libs.items():
                 # If target_path is empty, find library variants automatically
                 if not target_path or target_path == "":
                     lib_path = f"/usr/lib/{link_name}"
@@ -330,9 +330,9 @@ python rdke_gpu_layer_setup() {
         if missing_mandatory_libraries:
             bb.fatal(f"{log_prefix} Missing mandatory libraries: {', '.join(sorted(missing_mandatory_libraries))}")
 
-        # Report missing optional libraries as error (logged only, build continues)
+        # Report missing optional libraries as warning (build continues)
         if missing_optional_libraries:
-            bb.error(f"{log_prefix} Missing optional libraries: {', '.join(sorted(missing_optional_libraries))}")
+            bb.warn(f"{log_prefix} Missing optional libraries: {', '.join(sorted(missing_optional_libraries))}")
 
     except json.JSONDecodeError as e:
         bb.fatal(f"{log_prefix} Invalid JSON in {config_file}: {e}")
