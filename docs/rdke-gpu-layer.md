@@ -19,8 +19,8 @@ INHERIT += "rdke-gpu-layer"
 
 ### RDKE_GPU_LAYER_CONFIG_JSON
 - **Type**: File path
-- **Default**: `${VENDOR_LAYER_DIR}/conf/machine/include/rdke-gpu-layer-conf.json`
-- **Description**: Path to the GPU layer configuration JSON file
+- **Default**: `""` (empty - must be set by user)
+- **Description**: Path to the GPU layer configuration JSON file. This variable must be set to a valid JSON configuration file path, otherwise the build will fail with a fatal error.
 
 ### RDKE_GPU_LAYER_VERBOSE
 - **Type**: String ("0" or "1")
@@ -245,7 +245,7 @@ Creates in `${IMAGE_ROOTFS}${mount-rootfs-path}`:
 **Note**: Only the basename (filename) is used in the destination. Full directory structure is NOT preserved.
 
 **Behavior**: If an optional library doesn't exist:
-- It will be logged to `/tmp/rdke-gpu-layer-missing-libs.log`
+- Reported as a warning via `bb.warn`
 - Build continues (no fatal error)
 
 ## File Structure Example
@@ -299,13 +299,6 @@ Set `RDKE_GPU_LAYER_VERBOSE = "1"` in your build configuration(eg. in local.conf
 RDKE GPU Layer: Created 42 hardlinks/symlinks in /usr/share/gpu-layer/rootfs/usr/lib
 ```
 
-### Missing Libraries Log
-
-If libraries are not found, they are logged to:
-```
-${IMAGE_ROOTFS}/tmp/rdke-gpu-layer-missing-libs.log
-```
-
 ## Error Handling
 
 ### Fatal Errors (Build Stops)
@@ -314,10 +307,13 @@ ${IMAGE_ROOTFS}/tmp/rdke-gpu-layer-missing-libs.log
 - Configuration file not found
 - JSON parsing errors
 
+### Errors (May Fail Build Depending on BitBake Configuration)
+- Missing mandatory libraries (reported via `bb.error`)
+
 ### Warnings (Build Continues)
-- Missing optional libraries
+- Missing optional libraries (reported via `bb.warn`)
 - Failed to create specific hardlinks/symlinks
-- Source files not found
+- Source files not found for individual variants
 
 ## Best Practices
 
@@ -349,8 +345,9 @@ ${IMAGE_ROOTFS}/tmp/rdke-gpu-layer-missing-libs.log
 
 ### Libraries not found
 - Check `RDKE_GPU_LAYER_VERBOSE` output
-- Review `/tmp/rdke-gpu-layer-missing-libs.log`
+- Check BitBake build logs for warnings and errors
 - Verify library paths exist in the rootfs before this class runs
+- Mandatory missing libraries will generate errors; optional missing libraries generate warnings
 
 ### Symlinks not created correctly
 - Ensure target paths in `madatory` point to actual files

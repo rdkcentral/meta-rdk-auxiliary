@@ -138,7 +138,8 @@ python rdke_gpu_layer_setup() {
         created_count = 0
         skipped_count = 0
         processed_files = set()
-        missing_libraries = []
+        missing_mandatory_libraries = []
+        missing_optional_libraries = []
 
         # Process mandatory libraries (dict with link_name: target_path mapping)
         if 'madatory' in mount_rootfs_links:
@@ -153,7 +154,7 @@ python rdke_gpu_layer_setup() {
                     variants = find_library_variants(lib_path, rootfs)
 
                     if not variants:
-                        missing_libraries.append(lib_path)
+                        missing_mandatory_libraries.append(lib_path)
                         skipped_count += 1
                         continue
 
@@ -161,14 +162,14 @@ python rdke_gpu_layer_setup() {
                         bb.note(f"  Found {len(variants)} variant(s) for {lib_path}")
 
                     for variant_path in variants:
-                        if variant_path in processed_files:
+                        # Use only basename to avoid nested directory structure
+                        variant_basename = os.path.basename(variant_path)
+
+                        if variant_basename in processed_files:
                             continue
 
                         source_file = Path(rootfs + variant_path)
-                        relative_path = variant_path.lstrip('/')
-                        target_file = mount_rootfs_dir / relative_path
-
-                        target_file.parent.mkdir(parents=True, exist_ok=True)
+                        target_file = mount_rootfs_dir / variant_basename
 
                         if not source_file.exists():
                             bb.warn(f"Source file not found: {variant_path}")
@@ -184,11 +185,11 @@ python rdke_gpu_layer_setup() {
                                 link_target = os.readlink(source_file)
                                 os.symlink(link_target, target_file)
                                 if verbose:
-                                    bb.note(f"    Created symlink: {variant_path} -> {link_target}")
+                                    bb.note(f"    Created symlink: {variant_basename} -> {link_target}")
                                 created_count += 1
-                                processed_files.add(variant_path)
+                                processed_files.add(variant_basename)
                             except Exception as e:
-                                bb.error(f"Failed to create symlink for {variant_path}: {e}")
+                                bb.error(f"Failed to create symlink for {variant_basename}: {e}")
                                 skipped_count += 1
                         else:
                             if target_file.exists():
@@ -197,17 +198,17 @@ python rdke_gpu_layer_setup() {
                             try:
                                 os.link(source_file, target_file)
                                 if verbose:
-                                    bb.note(f"    Created hardlink: {variant_path}")
+                                    bb.note(f"    Created hardlink: {variant_basename}")
                                 created_count += 1
-                                processed_files.add(variant_path)
+                                processed_files.add(variant_basename)
                             except Exception as e:
-                                bb.error(f"Failed to create hardlink for {variant_path}: {e}")
+                                bb.error(f"Failed to create hardlink for {variant_basename}: {e}")
                                 skipped_count += 1
                 else:
                     # Use specified target_path
                     source_file = Path(rootfs + target_path)
                     if not source_file.exists():
-                        missing_libraries.append(target_path)
+                        missing_mandatory_libraries.append(target_path)
                         skipped_count += 1
                         continue
 
@@ -259,7 +260,7 @@ python rdke_gpu_layer_setup() {
                 if not source_file.exists():
                     if verbose:
                         bb.note(f"  Optional library not found (skipping): {lib_path}")
-                    missing_libraries.append(lib_path)
+                    missing_optional_libraries.append(lib_path)
                     skipped_count += 1
                     continue
 
@@ -306,15 +307,13 @@ python rdke_gpu_layer_setup() {
         if skipped_count > 0:
             bb.warn(f"RDKE GPU Layer: {skipped_count} files were not found or failed to process")
 
-        # Log missing libraries to file for debugging
-        if missing_libraries:
-            log_file = Path(rootfs + "/tmp/rdke-gpu-layer-missing-libs.log")
-            log_file.parent.mkdir(parents=True, exist_ok=True)
-            with open(log_file, 'w') as f:
-                f.write("Missing libraries during RDKE GPU layer setup:\n")
-                for lib in missing_libraries:
-                    f.write(f"  {lib}\n")
-            bb.error(f"Missing libraries logged to {log_file}. Missing libraries: {', '.join(missing_libraries)}")
+        # Report missing mandatory libraries as error
+        if missing_mandatory_libraries:
+            bb.error(f"Missing mandatory libraries: {', '.join(missing_mandatory_libraries)}")
+
+        # Report missing optional libraries as warning
+        if missing_optional_libraries:
+            bb.warn(f"Missing optional libraries: {', '.join(missing_optional_libraries)}")
 
     except json.JSONDecodeError as e:
         bb.fatal(f"Invalid JSON in {config_file}: {e}")
