@@ -29,13 +29,46 @@ python rdke_gpu_layer_setup() {
         if missing_fields:
             bb.fatal(f"Invalid JSON schema. Missing required fields: {', '.join(missing_fields)}")
 
+        # Validate mount-config structure
+        if 'mount-config' not in config or not isinstance(config['mount-config'], dict):
+            bb.fatal("'mount-config' must be a dictionary")
+
+        # Validate vendorGpuSupport
+        mount_config = config['mount-config']
+        if 'vendorGpuSupport' not in mount_config:
+            bb.fatal("'vendorGpuSupport' is mandatory in 'mount-config'")
+
+        vendor_gpu = mount_config['vendorGpuSupport']
+        if not isinstance(vendor_gpu, dict):
+            bb.fatal("'vendorGpuSupport' must be a dictionary")
+
+        # Validate devNodes
+        if 'devNodes' not in vendor_gpu:
+            bb.fatal("'devNodes' is mandatory in 'vendorGpuSupport'")
+        if not isinstance(vendor_gpu['devNodes'], list):
+            bb.fatal("'devNodes' must be a list")
+
+        # Validate groupIds
+        if 'groupIds' not in vendor_gpu:
+            bb.fatal("'groupIds' is mandatory in 'vendorGpuSupport'")
+        if not isinstance(vendor_gpu['groupIds'], list):
+            bb.fatal("'groupIds' must be a list")
+
         # Validate mount-rootfs-links structure
         if not isinstance(config['mount-rootfs-links'], dict):
             bb.fatal("'mount-rootfs-links' must be a dictionary")
 
-        for package, libs in config['mount-rootfs-links'].items():
-            if not isinstance(libs, list):
-                bb.fatal(f"Libraries for package '{package}' must be a list")
+        rootfs_links = config['mount-rootfs-links']
+
+        # Validate mandatory key
+        if 'madatory' not in rootfs_links:
+            bb.fatal("'madatory' is mandatory in 'mount-rootfs-links'")
+        if not isinstance(rootfs_links['madatory'], dict):
+            bb.fatal("'madatory' must be a dictionary")
+
+        # Validate optional key (if present)
+        if 'optional' in rootfs_links and not isinstance(rootfs_links['optional'], list):
+            bb.fatal("'optional' must be a list")
 
         return True
 
@@ -104,67 +137,165 @@ python rdke_gpu_layer_setup() {
         processed_files = set()
         missing_libraries = []
 
-        # Process each package's libraries
-        for package, libraries in mount_rootfs_links.items():
+        # Process mandatory libraries (dict with link_name: target_path mapping)
+        if 'madatory' in mount_rootfs_links:
             if verbose:
-                bb.note(f"Processing package: {package}")
+                bb.note("Processing mandatory libraries")
 
-            for lib_path in libraries:
-                # Find all variants of this library
-                variants = find_library_variants(lib_path, rootfs)
+            madatory_libs = mount_rootfs_links['madatory']
+            for link_name, target_path in madatory_libs.items():
+                # If target_path is empty, find library variants automatically
+                if not target_path or target_path == "":
+                    lib_path = f"/usr/lib/{link_name}"
+                    variants = find_library_variants(lib_path, rootfs)
 
-                if not variants:
-                    missing_libraries.append(lib_path)
-                    skipped_count += 1
-                    continue
-
-                if verbose:
-                    bb.note(f"  Found {len(variants)} variant(s) for {lib_path}")
-
-                # Create hardlinks for each variant
-                for variant_path in variants:
-                    if variant_path in processed_files:
-                        continue
-
-                    source_file = Path(rootfs + variant_path)
-                    relative_path = variant_path.lstrip('/')
-                    target_file = mount_rootfs_dir / relative_path
-
-                    target_file.parent.mkdir(parents=True, exist_ok=True)
-
-                    if not source_file.exists():
-                        bb.warn(f"Source file not found: {variant_path}")
+                    if not variants:
+                        missing_libraries.append(lib_path)
                         skipped_count += 1
                         continue
 
-                    # Handle symlinks
-                    if source_file.is_symlink():
-                        if target_file.exists() or target_file.is_symlink():
-                            target_file.unlink()
+                    if verbose:
+                        bb.note(f"  Found {len(variants)} variant(s) for {lib_path}")
 
-                        try:
-                            link_target = os.readlink(source_file)
-                            os.symlink(link_target, target_file)
-                            if verbose:
-                                bb.note(f"    Created symlink: {variant_path} -> {link_target}")
-                            created_count += 1
-                            processed_files.add(variant_path)
-                        except Exception as e:
-                            bb.error(f"Failed to create symlink for {variant_path}: {e}")
+                    for variant_path in variants:
+                        if variant_path in processed_files:
+                            continue
+
+                        source_file = Path(rootfs + variant_path)
+                        relative_path = variant_path.lstrip('/')
+                        target_file = mount_rootfs_dir / relative_path
+
+                        target_file.parent.mkdir(parents=True, exist_ok=True)
+
+                        if not source_file.exists():
+                            bb.warn(f"Source file not found: {variant_path}")
                             skipped_count += 1
-                    else:
+                            continue
+
+                        # Handle symlinks
+                        if source_file.is_symlink():
+                            if target_file.exists() or target_file.is_symlink():
+                                target_file.unlink()
+
+                            try:
+                                link_target = os.readlink(source_file)
+                                os.symlink(link_target, target_file)
+                                if verbose:
+                                    bb.note(f"    Created symlink: {variant_path} -> {link_target}")
+                                created_count += 1
+                                processed_files.add(variant_path)
+                            except Exception as e:
+                                bb.error(f"Failed to create symlink for {variant_path}: {e}")
+                                skipped_count += 1
+                        else:
+                            if target_file.exists():
+                                target_file.unlink()
+
+                            try:
+                                os.link(source_file, target_file)
+                                if verbose:
+                                    bb.note(f"    Created hardlink: {variant_path}")
+                                created_count += 1
+                                processed_files.add(variant_path)
+                            except Exception as e:
+                                bb.error(f"Failed to create hardlink for {variant_path}: {e}")
+                                skipped_count += 1
+                else:
+                    # Use specified target_path
+                    source_file = Path(rootfs + target_path)
+                    if not source_file.exists():
+                        missing_libraries.append(target_path)
+                        skipped_count += 1
+                        continue
+
+                    # Extract just the filename from target_path for hardlink
+                    target_filename = os.path.basename(target_path)
+
+                    # Create hardlink for the actual target file if not already processed
+                    target_file = mount_rootfs_dir / target_filename
+                    if target_filename not in processed_files:
                         if target_file.exists():
                             target_file.unlink()
 
                         try:
                             os.link(source_file, target_file)
                             if verbose:
-                                bb.note(f"    Created hardlink: {variant_path}")
+                                bb.note(f"    Created hardlink: {target_filename}")
                             created_count += 1
-                            processed_files.add(variant_path)
+                            processed_files.add(target_filename)
                         except Exception as e:
-                            bb.error(f"Failed to create hardlink for {variant_path}: {e}")
+                            bb.error(f"Failed to create hardlink for {target_filename}: {e}")
                             skipped_count += 1
+                            continue
+
+                    # Create symlink with the specified link_name pointing to target_filename
+                    if link_name != target_filename:
+                        link_file = mount_rootfs_dir / link_name
+
+                        if link_file.exists() or link_file.is_symlink():
+                            link_file.unlink()
+
+                        try:
+                            os.symlink(target_filename, link_file)
+                            if verbose:
+                                bb.note(f"    Created symlink: {link_name} -> {target_filename}")
+                            created_count += 1
+                        except Exception as e:
+                            bb.error(f"Failed to create symlink for {link_name}: {e}")
+                            skipped_count += 1
+
+        # Process optional libraries (list of paths)
+        if 'optional' in mount_rootfs_links:
+            if verbose:
+                bb.note("Processing optional libraries")
+
+            optional_libs = mount_rootfs_links['optional']
+            for lib_path in optional_libs:
+                source_file = Path(rootfs + lib_path)
+
+                if not source_file.exists():
+                    if verbose:
+                        bb.note(f"  Optional library not found (skipping): {lib_path}")
+                    missing_libraries.append(lib_path)
+                    skipped_count += 1
+                    continue
+
+                # Extract just the filename for hardlink
+                lib_filename = os.path.basename(lib_path)
+
+                if lib_filename in processed_files:
+                    continue
+
+                target_file = mount_rootfs_dir / lib_filename
+
+                # Handle symlinks
+                if source_file.is_symlink():
+                    if target_file.exists() or target_file.is_symlink():
+                        target_file.unlink()
+
+                    try:
+                        link_target = os.readlink(source_file)
+                        os.symlink(link_target, target_file)
+                        if verbose:
+                            bb.note(f"    Created symlink: {lib_filename} -> {link_target}")
+                        created_count += 1
+                        processed_files.add(lib_filename)
+                    except Exception as e:
+                        bb.error(f"Failed to create symlink for {lib_filename}: {e}")
+                        skipped_count += 1
+                else:
+                    if target_file.exists():
+                        target_file.unlink()
+
+                    try:
+                        os.link(source_file, target_file)
+                        if verbose:
+                            bb.note(f"    Created hardlink: {lib_filename}")
+                        created_count += 1
+                        processed_files.add(lib_filename)
+                    except Exception as e:
+                        bb.error(f"Failed to create hardlink for {lib_filename}: {e}")
+                        skipped_count += 1
 
         # Summary output
         bb.note(f"RDKE GPU Layer: Created {created_count} hardlinks/symlinks in {mount_rootfs_path}")
