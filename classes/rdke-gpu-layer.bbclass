@@ -113,6 +113,40 @@ python rdke_gpu_layer_setup() {
 
         return sorted(variants)
 
+    def create_library_link(source_file, target_file, filename, log_prefix, verbose):
+        """Create hardlink or symlink for a library file.
+
+        Returns: (success, is_error) tuple
+        - success: True if link was created successfully
+        - is_error: True if failure should be treated as error (vs warning)
+        """
+        # Handle symlinks
+        if source_file.is_symlink():
+            if target_file.exists() or target_file.is_symlink():
+                target_file.unlink()
+
+            try:
+                link_target = os.readlink(source_file)
+                os.symlink(link_target, target_file)
+                if verbose:
+                    bb.note(f"{log_prefix}     Created symlink: {filename} -> {link_target}")
+                return (True, False)
+            except Exception as e:
+                bb.error(f"{log_prefix} Failed to create symlink for {filename}: {e}")
+                return (False, True)
+        else:
+            if target_file.exists():
+                target_file.unlink()
+
+            try:
+                os.link(source_file, target_file)
+                if verbose:
+                    bb.note(f"{log_prefix}     Created hardlink: {filename}")
+                return (True, False)
+            except Exception as e:
+                bb.error(f"{log_prefix} Failed to create hardlink for {filename}: {e}")
+                return (False, True)
+
     # Check if config file is specified
     if not config_file or config_file == "":
         bb.fatal(f"{log_prefix} RDKE_GPU_LAYER_CONFIG_JSON is not set. Please set it to a valid JSON configuration file path.")
@@ -152,8 +186,8 @@ python rdke_gpu_layer_setup() {
         created_count = 0
         skipped_count = 0
         processed_files = set()
-        missing_mandatory_libraries = []
-        missing_optional_libraries = []
+        missing_mandatory_libraries = set()
+        missing_optional_libraries = set()
 
         # Process mandatory libraries (dict with link_name: target_path mapping)
         if 'madatory' in mount_rootfs_links:
@@ -168,13 +202,18 @@ python rdke_gpu_layer_setup() {
                     variants = find_library_variants(lib_path, rootfs)
 
                     if not variants:
-                        missing_mandatory_libraries.append(lib_path)
+                        missing_mandatory_libraries.add(lib_path)
                         skipped_count += 1
                         continue
 
                     if verbose:
                         bb.note(f"{log_prefix}   Found {len(variants)} variant(s) for {lib_path}")
 
+                    # Determine the primary target file (first variant found)
+                    primary_variant = variants[0]
+                    primary_basename = os.path.basename(primary_variant)
+
+                    # Process all variants
                     for variant_path in variants:
                         # Use only basename to avoid nested directory structure
                         variant_basename = os.path.basename(variant_path)
@@ -190,39 +229,33 @@ python rdke_gpu_layer_setup() {
                             skipped_count += 1
                             continue
 
-                        # Handle symlinks
-                        if source_file.is_symlink():
-                            if target_file.exists() or target_file.is_symlink():
-                                target_file.unlink()
-
-                            try:
-                                link_target = os.readlink(source_file)
-                                os.symlink(link_target, target_file)
-                                if verbose:
-                                    bb.note(f"{log_prefix}     Created symlink: {variant_basename} -> {link_target}")
-                                created_count += 1
-                                processed_files.add(variant_basename)
-                            except Exception as e:
-                                bb.error(f"{log_prefix} Failed to create symlink for {variant_basename}: {e}")
-                                skipped_count += 1
+                        success, is_error = create_library_link(source_file, target_file, variant_basename, log_prefix, verbose)
+                        if success:
+                            created_count += 1
+                            processed_files.add(variant_basename)
                         else:
-                            if target_file.exists():
-                                target_file.unlink()
+                            skipped_count += 1
 
-                            try:
-                                os.link(source_file, target_file)
-                                if verbose:
-                                    bb.note(f"{log_prefix}     Created hardlink: {variant_basename}")
-                                created_count += 1
-                                processed_files.add(variant_basename)
-                            except Exception as e:
-                                bb.error(f"{log_prefix} Failed to create hardlink for {variant_basename}: {e}")
-                                skipped_count += 1
+                    # Create symlink from link_name to primary target if they differ
+                    if link_name != primary_basename and primary_basename in processed_files:
+                        link_file = mount_rootfs_dir / link_name
+
+                        if link_file.exists() or link_file.is_symlink():
+                            link_file.unlink()
+
+                        try:
+                            os.symlink(primary_basename, link_file)
+                            if verbose:
+                                bb.note(f"{log_prefix}     Created symlink: {link_name} -> {primary_basename}")
+                            created_count += 1
+                        except Exception as e:
+                            bb.error(f"{log_prefix} Failed to create symlink for {link_name}: {e}")
+                            skipped_count += 1
                 else:
                     # Use specified target_path
                     source_file = Path(rootfs + target_path)
                     if not source_file.exists():
-                        missing_mandatory_libraries.append(target_path)
+                        missing_mandatory_libraries.add(target_path)
                         skipped_count += 1
                         continue
 
@@ -232,17 +265,11 @@ python rdke_gpu_layer_setup() {
                     # Create hardlink for the actual target file if not already processed
                     target_file = mount_rootfs_dir / target_filename
                     if target_filename not in processed_files:
-                        if target_file.exists():
-                            target_file.unlink()
-
-                        try:
-                            os.link(source_file, target_file)
-                            if verbose:
-                                bb.note(f"{log_prefix}     Created hardlink: {target_filename}")
+                        success, is_error = create_library_link(source_file, target_file, target_filename, log_prefix, verbose)
+                        if success:
                             created_count += 1
                             processed_files.add(target_filename)
-                        except Exception as e:
-                            bb.error(f"{log_prefix} Failed to create hardlink for {target_filename}: {e}")
+                        else:
                             skipped_count += 1
                             continue
 
@@ -274,7 +301,7 @@ python rdke_gpu_layer_setup() {
                 if not source_file.exists():
                     if verbose:
                         bb.note(f"{log_prefix}   Optional library not found (skipping): {lib_path}")
-                    missing_optional_libraries.append(lib_path)
+                    missing_optional_libraries.add(lib_path)
                     skipped_count += 1
                     continue
 
@@ -286,34 +313,12 @@ python rdke_gpu_layer_setup() {
 
                 target_file = mount_rootfs_dir / lib_filename
 
-                # Handle symlinks
-                if source_file.is_symlink():
-                    if target_file.exists() or target_file.is_symlink():
-                        target_file.unlink()
-
-                    try:
-                        link_target = os.readlink(source_file)
-                        os.symlink(link_target, target_file)
-                        if verbose:
-                            bb.note(f"{log_prefix}     Created symlink: {lib_filename} -> {link_target}")
-                        created_count += 1
-                        processed_files.add(lib_filename)
-                    except Exception as e:
-                        bb.error(f"{log_prefix} Failed to create symlink for {lib_filename}: {e}")
-                        skipped_count += 1
+                success, is_error = create_library_link(source_file, target_file, lib_filename, log_prefix, verbose)
+                if success:
+                    created_count += 1
+                    processed_files.add(lib_filename)
                 else:
-                    if target_file.exists():
-                        target_file.unlink()
-
-                    try:
-                        os.link(source_file, target_file)
-                        if verbose:
-                            bb.note(f"{log_prefix}     Created hardlink: {lib_filename}")
-                        created_count += 1
-                        processed_files.add(lib_filename)
-                    except Exception as e:
-                        bb.error(f"{log_prefix} Failed to create hardlink for {lib_filename}: {e}")
-                        skipped_count += 1
+                    skipped_count += 1
 
         # Summary output
         bb.note(f"{log_prefix} Created {created_count} hardlinks/symlinks in {mount_rootfs_path}")
@@ -323,11 +328,11 @@ python rdke_gpu_layer_setup() {
 
         # Report missing mandatory libraries as error (will fail build)
         if missing_mandatory_libraries:
-            bb.fatal(f"{log_prefix} Missing mandatory libraries: {', '.join(missing_mandatory_libraries)}")
+            bb.fatal(f"{log_prefix} Missing mandatory libraries: {', '.join(sorted(missing_mandatory_libraries))}")
 
         # Report missing optional libraries as error (logged only, build continues)
         if missing_optional_libraries:
-            bb.error(f"{log_prefix} Missing optional libraries: {', '.join(missing_optional_libraries)}")
+            bb.error(f"{log_prefix} Missing optional libraries: {', '.join(sorted(missing_optional_libraries))}")
 
     except json.JSONDecodeError as e:
         bb.fatal(f"{log_prefix} Invalid JSON in {config_file}: {e}")
