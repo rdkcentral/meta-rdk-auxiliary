@@ -116,9 +116,7 @@ python rdke_gpu_layer_setup() {
     def create_library_link(source_file, target_file, filename, log_prefix, verbose):
         """Create hardlink or symlink for a library file.
 
-        Returns: (success, is_error) tuple
-        - success: True if link was created successfully
-        - is_error: True if failure should be treated as error (vs warning)
+        Returns: True if link was created successfully, False otherwise.
         """
         # Handle symlinks
         if source_file.is_symlink():
@@ -130,10 +128,10 @@ python rdke_gpu_layer_setup() {
                 os.symlink(link_target, target_file)
                 if verbose:
                     bb.note(f"{log_prefix}     Created symlink: {filename} -> {link_target}")
-                return (True, False)
+                return True
             except Exception as e:
                 bb.error(f"{log_prefix} Failed to create symlink for {filename}: {e}")
-                return (False, True)
+                return False
         else:
             if target_file.exists():
                 target_file.unlink()
@@ -142,10 +140,10 @@ python rdke_gpu_layer_setup() {
                 os.link(source_file, target_file)
                 if verbose:
                     bb.note(f"{log_prefix}     Created hardlink: {filename}")
-                return (True, False)
+                return True
             except Exception as e:
                 bb.error(f"{log_prefix} Failed to create hardlink for {filename}: {e}")
-                return (False, True)
+                return False
 
     # Check if config file is specified
     if not config_file or config_file == "":
@@ -229,11 +227,12 @@ python rdke_gpu_layer_setup() {
                             skipped_count += 1
                             continue
 
-                        success, is_error = create_library_link(source_file, target_file, variant_basename, log_prefix, verbose)
+                        success = create_library_link(source_file, target_file, variant_basename, log_prefix, verbose)
                         if success:
                             created_count += 1
                             processed_files.add(variant_basename)
                         else:
+                            missing_mandatory_libraries.add(f"{lib_path} (variant: {variant_path})")
                             skipped_count += 1
 
                     # Create symlink from link_name to primary target if they differ
@@ -250,6 +249,7 @@ python rdke_gpu_layer_setup() {
                             created_count += 1
                         except Exception as e:
                             bb.error(f"{log_prefix} Failed to create symlink for {link_name}: {e}")
+                            missing_mandatory_libraries.add(f"{lib_path} (symlink {link_name} failed)")
                             skipped_count += 1
                 else:
                     # Use specified target_path
@@ -265,11 +265,12 @@ python rdke_gpu_layer_setup() {
                     # Create hardlink for the actual target file if not already processed
                     target_file = mount_rootfs_dir / target_filename
                     if target_filename not in processed_files:
-                        success, is_error = create_library_link(source_file, target_file, target_filename, log_prefix, verbose)
+                        success = create_library_link(source_file, target_file, target_filename, log_prefix, verbose)
                         if success:
                             created_count += 1
                             processed_files.add(target_filename)
                         else:
+                            missing_mandatory_libraries.add(f"{target_path} (hardlink failed)")
                             skipped_count += 1
                             continue
 
@@ -287,6 +288,7 @@ python rdke_gpu_layer_setup() {
                             created_count += 1
                         except Exception as e:
                             bb.error(f"{log_prefix} Failed to create symlink for {link_name}: {e}")
+                            missing_mandatory_libraries.add(f"{target_path} (symlink {link_name} failed)")
                             skipped_count += 1
 
         # Process optional libraries (list of paths)
@@ -313,7 +315,7 @@ python rdke_gpu_layer_setup() {
 
                 target_file = mount_rootfs_dir / lib_filename
 
-                success, is_error = create_library_link(source_file, target_file, lib_filename, log_prefix, verbose)
+                success = create_library_link(source_file, target_file, lib_filename, log_prefix, verbose)
                 if success:
                     created_count += 1
                     processed_files.add(lib_filename)
