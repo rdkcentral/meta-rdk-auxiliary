@@ -7,7 +7,7 @@
 # Usage: Add 'INHERIT += "rdke-gpu-layer"' to your image recipe or configuration
 
 # Path to the GPU layer configuration JSON file
-RDKE_GPU_LAYER_CONFIG_JSON ?= "${VENDOR_LAYER_DIR}/conf/machine/include/rdke-gpu-layer-conf.json"
+RDKE_GPU_LAYER_CONFIG_JSON ?= ""
 
 # Enable verbose logging (set to "1" for detailed output)
 RDKE_GPU_LAYER_VERBOSE ?= "0"
@@ -99,10 +99,13 @@ python rdke_gpu_layer_setup() {
 
         return sorted(variants)
 
+    # Check if config file is specified
+    if not config_file or config_file == "":
+        bb.fatal("RDKE_GPU_LAYER_CONFIG_JSON is not set. Please set it to a valid JSON configuration file path.")
+
     # Check if config file exists
     if not os.path.exists(config_file):
         bb.fatal(f"RDKE GPU layer config JSON file not found: {config_file}")
-        return
 
     try:
         # Read and validate configuration JSON
