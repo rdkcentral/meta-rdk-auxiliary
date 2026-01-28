@@ -12,6 +12,12 @@ RDKE_GPU_LAYER_CONFIG_JSON ?= ""
 # Enable verbose logging (set to "1" for detailed output)
 RDKE_GPU_LAYER_VERBOSE ?= "0"
 
+# Log prefix for all messages from this class
+RDKE_GPU_LAYER_LOG_PREFIX = "[rdke-gpu-layer]"
+
+# Required mandatory library keys that must be present in the 'madatory' section
+RDKE_GPU_LAYER_REQUIRED_LIBS = "libEGL.so libEGL.so.1 libGLESv1_CM.so libGLESv1_CM.so.1 libGLESv2.so libGLESv2.so.2 libwayland-egl.so.1"
+
 python rdke_gpu_layer_setup() {
     import json
     import os
@@ -20,6 +26,8 @@ python rdke_gpu_layer_setup() {
     config_file = d.getVar('RDKE_GPU_LAYER_CONFIG_JSON')
     rootfs = d.getVar('IMAGE_ROOTFS')
     verbose = d.getVar('RDKE_GPU_LAYER_VERBOSE') == "1"
+    log_prefix = d.getVar('RDKE_GPU_LAYER_LOG_PREFIX') or "[rdke-gpu-layer]"
+    required_libs = (d.getVar('RDKE_GPU_LAYER_REQUIRED_LIBS') or "").split()
 
     def validate_json_schema(config):
         """Validate the JSON configuration has required fields."""
@@ -27,48 +35,54 @@ python rdke_gpu_layer_setup() {
         missing_fields = [field for field in required_fields if field not in config]
 
         if missing_fields:
-            bb.fatal(f"Invalid JSON schema. Missing required fields: {', '.join(missing_fields)}")
+            bb.fatal(f"{log_prefix} Invalid JSON schema. Missing required fields: {', '.join(missing_fields)}")
 
         # Validate mount-config structure
         if 'mount-config' not in config or not isinstance(config['mount-config'], dict):
-            bb.fatal("'mount-config' must be a dictionary")
+            bb.fatal(f"{log_prefix} 'mount-config' must be a dictionary")
 
         # Validate vendorGpuSupport
         mount_config = config['mount-config']
         if 'vendorGpuSupport' not in mount_config:
-            bb.fatal("'vendorGpuSupport' is mandatory in 'mount-config'")
+            bb.fatal(f"{log_prefix} 'vendorGpuSupport' is mandatory in 'mount-config'")
 
         vendor_gpu = mount_config['vendorGpuSupport']
         if not isinstance(vendor_gpu, dict):
-            bb.fatal("'vendorGpuSupport' must be a dictionary")
+            bb.fatal(f"{log_prefix} 'vendorGpuSupport' must be a dictionary")
 
         # Validate devNodes
         if 'devNodes' not in vendor_gpu:
-            bb.fatal("'devNodes' is mandatory in 'vendorGpuSupport'")
+            bb.fatal(f"{log_prefix} 'devNodes' is mandatory in 'vendorGpuSupport'")
         if not isinstance(vendor_gpu['devNodes'], list):
-            bb.fatal("'devNodes' must be a list")
+            bb.fatal(f"{log_prefix} 'devNodes' must be a list")
 
         # Validate groupIds
         if 'groupIds' not in vendor_gpu:
-            bb.fatal("'groupIds' is mandatory in 'vendorGpuSupport'")
+            bb.fatal(f"{log_prefix} 'groupIds' is mandatory in 'vendorGpuSupport'")
         if not isinstance(vendor_gpu['groupIds'], list):
-            bb.fatal("'groupIds' must be a list")
+            bb.fatal(f"{log_prefix} 'groupIds' must be a list")
 
         # Validate mount-rootfs-links structure
         if not isinstance(config['mount-rootfs-links'], dict):
-            bb.fatal("'mount-rootfs-links' must be a dictionary")
+            bb.fatal(f"{log_prefix} 'mount-rootfs-links' must be a dictionary")
 
         rootfs_links = config['mount-rootfs-links']
 
         # Validate mandatory key
         if 'madatory' not in rootfs_links:
-            bb.fatal("'madatory' is mandatory in 'mount-rootfs-links'")
+            bb.fatal(f"{log_prefix} 'madatory' is mandatory in 'mount-rootfs-links'")
         if not isinstance(rootfs_links['madatory'], dict):
-            bb.fatal("'madatory' must be a dictionary")
+            bb.fatal(f"{log_prefix} 'madatory' must be a dictionary")
+
+        # Validate required library keys are present in madatory
+        madatory_libs = rootfs_links['madatory']
+        missing_required_libs = [lib for lib in required_libs if lib not in madatory_libs]
+        if missing_required_libs:
+            bb.fatal(f"{log_prefix} Missing required library keys in 'madatory': {', '.join(missing_required_libs)}")
 
         # Validate optional key (if present)
         if 'optional' in rootfs_links and not isinstance(rootfs_links['optional'], list):
-            bb.fatal("'optional' must be a list")
+            bb.fatal(f"{log_prefix} 'optional' must be a list")
 
         return True
 
@@ -101,11 +115,11 @@ python rdke_gpu_layer_setup() {
 
     # Check if config file is specified
     if not config_file or config_file == "":
-        bb.fatal("RDKE_GPU_LAYER_CONFIG_JSON is not set. Please set it to a valid JSON configuration file path.")
+        bb.fatal(f"{log_prefix} RDKE_GPU_LAYER_CONFIG_JSON is not set. Please set it to a valid JSON configuration file path.")
 
     # Check if config file exists
     if not os.path.exists(config_file):
-        bb.fatal(f"RDKE GPU layer config JSON file not found: {config_file}")
+        bb.fatal(f"{log_prefix} RDKE GPU layer config JSON file not found: {config_file}")
 
     try:
         # Read and validate configuration JSON
@@ -129,7 +143,7 @@ python rdke_gpu_layer_setup() {
             json.dump(mount_config, f, indent=2)
 
         if verbose:
-            bb.note(f"Created mount config file: {mount_config_file}")
+            bb.note(f"{log_prefix} Created mount config file: {mount_config_file}")
 
         # ===== Step 2: Create hardlinks in mount rootfs path =====
         mount_rootfs_dir = Path(rootfs + mount_rootfs_path)
@@ -144,7 +158,7 @@ python rdke_gpu_layer_setup() {
         # Process mandatory libraries (dict with link_name: target_path mapping)
         if 'madatory' in mount_rootfs_links:
             if verbose:
-                bb.note("Processing mandatory libraries")
+                bb.note(f"{log_prefix} Processing mandatory libraries")
 
             madatory_libs = mount_rootfs_links['madatory']
             for link_name, target_path in madatory_libs.items():
@@ -159,7 +173,7 @@ python rdke_gpu_layer_setup() {
                         continue
 
                     if verbose:
-                        bb.note(f"  Found {len(variants)} variant(s) for {lib_path}")
+                        bb.note(f"{log_prefix}   Found {len(variants)} variant(s) for {lib_path}")
 
                     for variant_path in variants:
                         # Use only basename to avoid nested directory structure
@@ -172,7 +186,7 @@ python rdke_gpu_layer_setup() {
                         target_file = mount_rootfs_dir / variant_basename
 
                         if not source_file.exists():
-                            bb.warn(f"Source file not found: {variant_path}")
+                            bb.warn(f"{log_prefix} Source file not found: {variant_path}")
                             skipped_count += 1
                             continue
 
@@ -185,11 +199,11 @@ python rdke_gpu_layer_setup() {
                                 link_target = os.readlink(source_file)
                                 os.symlink(link_target, target_file)
                                 if verbose:
-                                    bb.note(f"    Created symlink: {variant_basename} -> {link_target}")
+                                    bb.note(f"{log_prefix}     Created symlink: {variant_basename} -> {link_target}")
                                 created_count += 1
                                 processed_files.add(variant_basename)
                             except Exception as e:
-                                bb.error(f"Failed to create symlink for {variant_basename}: {e}")
+                                bb.error(f"{log_prefix} Failed to create symlink for {variant_basename}: {e}")
                                 skipped_count += 1
                         else:
                             if target_file.exists():
@@ -198,11 +212,11 @@ python rdke_gpu_layer_setup() {
                             try:
                                 os.link(source_file, target_file)
                                 if verbose:
-                                    bb.note(f"    Created hardlink: {variant_basename}")
+                                    bb.note(f"{log_prefix}     Created hardlink: {variant_basename}")
                                 created_count += 1
                                 processed_files.add(variant_basename)
                             except Exception as e:
-                                bb.error(f"Failed to create hardlink for {variant_basename}: {e}")
+                                bb.error(f"{log_prefix} Failed to create hardlink for {variant_basename}: {e}")
                                 skipped_count += 1
                 else:
                     # Use specified target_path
@@ -224,11 +238,11 @@ python rdke_gpu_layer_setup() {
                         try:
                             os.link(source_file, target_file)
                             if verbose:
-                                bb.note(f"    Created hardlink: {target_filename}")
+                                bb.note(f"{log_prefix}     Created hardlink: {target_filename}")
                             created_count += 1
                             processed_files.add(target_filename)
                         except Exception as e:
-                            bb.error(f"Failed to create hardlink for {target_filename}: {e}")
+                            bb.error(f"{log_prefix} Failed to create hardlink for {target_filename}: {e}")
                             skipped_count += 1
                             continue
 
@@ -242,16 +256,16 @@ python rdke_gpu_layer_setup() {
                         try:
                             os.symlink(target_filename, link_file)
                             if verbose:
-                                bb.note(f"    Created symlink: {link_name} -> {target_filename}")
+                                bb.note(f"{log_prefix}     Created symlink: {link_name} -> {target_filename}")
                             created_count += 1
                         except Exception as e:
-                            bb.error(f"Failed to create symlink for {link_name}: {e}")
+                            bb.error(f"{log_prefix} Failed to create symlink for {link_name}: {e}")
                             skipped_count += 1
 
         # Process optional libraries (list of paths)
         if 'optional' in mount_rootfs_links:
             if verbose:
-                bb.note("Processing optional libraries")
+                bb.note(f"{log_prefix} Processing optional libraries")
 
             optional_libs = mount_rootfs_links['optional']
             for lib_path in optional_libs:
@@ -259,7 +273,7 @@ python rdke_gpu_layer_setup() {
 
                 if not source_file.exists():
                     if verbose:
-                        bb.note(f"  Optional library not found (skipping): {lib_path}")
+                        bb.note(f"{log_prefix}   Optional library not found (skipping): {lib_path}")
                     missing_optional_libraries.append(lib_path)
                     skipped_count += 1
                     continue
@@ -281,11 +295,11 @@ python rdke_gpu_layer_setup() {
                         link_target = os.readlink(source_file)
                         os.symlink(link_target, target_file)
                         if verbose:
-                            bb.note(f"    Created symlink: {lib_filename} -> {link_target}")
+                            bb.note(f"{log_prefix}     Created symlink: {lib_filename} -> {link_target}")
                         created_count += 1
                         processed_files.add(lib_filename)
                     except Exception as e:
-                        bb.error(f"Failed to create symlink for {lib_filename}: {e}")
+                        bb.error(f"{log_prefix} Failed to create symlink for {lib_filename}: {e}")
                         skipped_count += 1
                 else:
                     if target_file.exists():
@@ -294,32 +308,32 @@ python rdke_gpu_layer_setup() {
                     try:
                         os.link(source_file, target_file)
                         if verbose:
-                            bb.note(f"    Created hardlink: {lib_filename}")
+                            bb.note(f"{log_prefix}     Created hardlink: {lib_filename}")
                         created_count += 1
                         processed_files.add(lib_filename)
                     except Exception as e:
-                        bb.error(f"Failed to create hardlink for {lib_filename}: {e}")
+                        bb.error(f"{log_prefix} Failed to create hardlink for {lib_filename}: {e}")
                         skipped_count += 1
 
         # Summary output
-        bb.note(f"RDKE GPU Layer: Created {created_count} hardlinks/symlinks in {mount_rootfs_path}")
+        bb.note(f"{log_prefix} Created {created_count} hardlinks/symlinks in {mount_rootfs_path}")
 
         if skipped_count > 0:
-            bb.warn(f"RDKE GPU Layer: {skipped_count} files were not found or failed to process")
+            bb.warn(f"{log_prefix} {skipped_count} files were not found or failed to process")
 
-        # Report missing mandatory libraries as error
+        # Report missing mandatory libraries as error (will fail build)
         if missing_mandatory_libraries:
-            bb.error(f"Missing mandatory libraries: {', '.join(missing_mandatory_libraries)}")
+            bb.fatal(f"{log_prefix} Missing mandatory libraries: {', '.join(missing_mandatory_libraries)}")
 
-        # Report missing optional libraries as warning
+        # Report missing optional libraries as error (logged only, build continues)
         if missing_optional_libraries:
-            bb.warn(f"Missing optional libraries: {', '.join(missing_optional_libraries)}")
+            bb.error(f"{log_prefix} Missing optional libraries: {', '.join(missing_optional_libraries)}")
 
     except json.JSONDecodeError as e:
-        bb.fatal(f"Invalid JSON in {config_file}: {e}")
+        bb.fatal(f"{log_prefix} Invalid JSON in {config_file}: {e}")
     except Exception as e:
         import traceback
-        bb.fatal(f"Failed to process RDKE GPU layer configuration: {e}\n{traceback.format_exc()}")
+        bb.fatal(f"{log_prefix} Failed to process RDKE GPU layer configuration: {e}\n{traceback.format_exc()}")
 }
 
 # Add the function to rootfs post-process commands

@@ -2,30 +2,30 @@
 
 ## Overview
 
-The `rdke-gpu-layer.bbclass` is a BitBake class that processes GPU layer configuration to set up GPU support for containerized applications in RDK-E. It performs two main tasks:
+The `rdke-gpu-layer.bbclass` is a BitBake class that processes GPU layer configuration to set up GPU layer support in the rootfs for containerized applications in RDK-E. It performs two main tasks:
 
 1. **Creates a mount configuration file** with GPU device nodes and group IDs for container runtime
 2. **Creates hardlinks and symlinks** of GPU libraries in a dedicated rootfs path for container mounting
 
+This implementation follows the RDK GPU Layer Proposal for:
+- Separating vendor GPU libraries from container images
+- Providing mount configuration for container runtimes
+- Creating a shared GPU rootfs for multiple containers
+
+The bbclass automates the setup of the GPU layer rootfs structure as described in the GPU layer proposal documentation.
+
 ## Usage
 
-Add the class to your image recipe or configuration:
+Add the class to your image recipe or build configuration and set `RDKE_GPU_LAYER_CONFIG_JSON` pointing to the valid GPU layer configuration JSON file.
 
 ```bitbake
 INHERIT += "rdke-gpu-layer"
 ```
 
-## Configuration Variables
-
 ### RDKE_GPU_LAYER_CONFIG_JSON
 - **Type**: File path
-- **Default**: `""` (empty - must be set by user)
+- **Default**: `""` (empty - must be set and should be available in all RDKE layers, preferably from vendor layer or product)
 - **Description**: Path to the GPU layer configuration JSON file. This variable must be set to a valid JSON configuration file path, otherwise the build will fail with a fatal error.
-
-### RDKE_GPU_LAYER_VERBOSE
-- **Type**: String ("0" or "1")
-- **Default**: "0"
-- **Description**: Enable verbose logging for debugging. Set to "1" for detailed output
 
 ## JSON Schema
 
@@ -275,95 +275,3 @@ ${IMAGE_ROOTFS}/
 │                       ├── libdrm.so.2.4.0                      # Hardlink (optional)
 │                       └── libvulkan.so.1.3.204                 # Hardlink (optional)
 ```
-
-## Container Integration
-
-The GPU layer setup is designed to work with container runtimes:
-
-1. **Mount Config File**: Used by container runtime to:
-   - Mount the specified device nodes into the container
-   - Set up proper group permissions
-
-2. **GPU Layer Rootfs**: The `mount-rootfs-path` directory is:
-   - Mounted into the container at `/usr/lib` (or appropriate location)
-   - Provides GPU libraries without including them in the container image
-   - Allows vendor-specific GPU libraries to be shared across containers
-
-## Logging and Debugging
-
-### Enable Verbose Mode
-
-Set `RDKE_GPU_LAYER_VERBOSE = "1"` in your build configuration(eg. in local.conf) to see detailed output:
-
-```
-RDKE GPU Layer: Created 42 hardlinks/symlinks in /usr/share/gpu-layer/rootfs/usr/lib
-```
-
-## Error Handling
-
-### Fatal Errors (Build Stops)
-- Missing mandatory JSON fields
-- Invalid JSON schema structure
-- Configuration file not found
-- JSON parsing errors
-
-### Errors (May Fail Build Depending on BitBake Configuration)
-- Missing mandatory libraries (reported via `bb.error`)
-
-### Warnings (Build Continues)
-- Missing optional libraries (reported via `bb.warn`)
-- Failed to create specific hardlinks/symlinks
-- Source files not found for individual variants
-
-## Best Practices
-
-1. **Mandatory vs Optional**:
-   - Use `madatory` for libraries critical to GPU functionality
-   - Use `optional` for libraries that may not exist on all platforms
-
-2. **Empty Target Paths**:
-   - Use empty string `""` when you want auto-discovery of library variants
-   - Useful for libraries with varying version numbers across platforms
-
-3. **Symlink Strategy**:
-   - Use different key and target names to create symlinks
-   - Mimics standard library naming conventions (e.g., `libEGL.so.1` → `libEGL.so.1.0.0`)
-
-4. **Device Nodes**:
-   - Include all GPU-related device nodes in `devNodes`
-   - Common nodes: `/dev/dri/*`, `/dev/dma_heap/*`, vendor-specific nodes
-
-5. **Group IDs**:
-   - Ensure `groupIds` match the groups required for GPU access on your platform
-   - Common groups: `video`, `render`, `gpu`
-
-## Troubleshooting
-
-### Build fails with "Missing required fields"
-- Verify all mandatory fields are present in your JSON
-- Check spelling of field names (especially `madatory`)
-
-### Libraries not found
-- Check `RDKE_GPU_LAYER_VERBOSE` output
-- Check BitBake build logs for warnings and errors
-- Verify library paths exist in the rootfs before this class runs
-- Mandatory missing libraries will generate errors; optional missing libraries generate warnings
-
-### Symlinks not created correctly
-- Ensure target paths in `madatory` point to actual files
-- Use absolute paths starting with `/`
-
-### Container can't access GPU
-- Verify `devNodes` includes all required device nodes
-- Check `groupIds` match the platform's GPU access groups
-- Ensure container runtime mounts the GPU layer rootfs correctly
-
-## Integration with GPU Layer Proposal
-
-This implementation follows the RDK GPU Layer Proposal for:
-- Separating vendor GPU libraries from container images
-- Providing mount configuration for container runtimes
-- Creating a shared GPU rootfs for multiple containers
-- Supporting both Mesa and vendor-specific GPU implementations
-
-The bbclass automates the setup of the GPU layer rootfs structure as described in the GPU layer proposal documentation.
