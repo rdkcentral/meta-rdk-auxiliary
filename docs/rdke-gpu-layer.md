@@ -254,12 +254,12 @@ Given the example configuration above, the resulting file structure would be:
 ```
 ${IMAGE_ROOTFS}/
 ├── usr/
-│   └── share/
-│       └── gpu-layer/
-│           ├── config.json                    # Mount config file
-│           └── rootfs/
-│               └── usr/
-│                   └── lib/
+    └── share/
+        └── gpu-layer/
+            ├── config.json                    # Mount config file
+            └── rootfs/
+                └── usr/
+                    └── lib/
                        ├── libEGL.so → libEGL.so.1.0.0          # Symlink (mandatory)
                        ├── libEGL.so.1 → libEGL.so.1.0.0        # Symlink (mandatory)
                        ├── libEGL.so.1.0.0                      # Hardlink (mandatory)
@@ -268,9 +268,9 @@ ${IMAGE_ROOTFS}/
                        ├── libGLESv2.so.2.0.0                   # Hardlink (mandatory)
                        ├── libwayland-egl.so.1 → libwayland...  # Symlink (mandatory)
                        ├── libwayland-egl.so.1.0.0              # Hardlink (mandatory)
-│                       ├── libglapi.so.0.0.0                    # Hardlink (optional)
-│                       ├── libffi.so.8.1.2                      # Hardlink (optional)
-│                       ├── libgbm.so.1.0.0                      # Hardlink (optional)
-│                       ├── libdrm.so.2.4.0                      # Hardlink (optional)
-│                       └── libvulkan.so.1.3.204                 # Hardlink (optional)
+                       ├── libglapi.so.0.0.0                    # Hardlink (optional)
+                       ├── libffi.so.8.1.2                      # Hardlink (optional)
+                       ├── libgbm.so.1.0.0                      # Hardlink (optional)
+                       ├── libdrm.so.2.4.0                      # Hardlink (optional)
+                       └── libvulkan.so.1.3.204                 # Hardlink (optional)
 ```
