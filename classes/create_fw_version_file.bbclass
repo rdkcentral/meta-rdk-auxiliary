@@ -3,7 +3,7 @@ ROOTFS_POSTPROCESS_COMMAND += ' create_version_file; '
 def extract_layer_versions_from_file(d, file_path):
     import re
     # Define a regular expression pattern to match the version number
-    pattern = r'(\d+(\.\d+)*)'
+    pattern = r'([a-zA-Z0-9._-]+?)(?=-r\d+|$)'
 
     # Initialize a dictionary to store version numbers
     versions = {}
