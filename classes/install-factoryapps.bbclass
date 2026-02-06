@@ -3,22 +3,15 @@ inherit python3native
 # Hook into rootfs creation
 ROOTFS_POSTPROCESS_COMMAND += " factory_apps_installer_postprocess; "
 
-# Use Yocto's download directory for caching
-FACTORY_APPS_DOWNLOAD_DIR ??= "${DL_DIR}/factory-apps"
-
-# JSON location
-FACTORY_APPS_JSON_FILE ??= "${DL_DIR}/factoryapp-manifest.json"
-
 python factory_apps_installer_run() {
     import json
     import os
-    import hashlib
+    import shutil
     import bb.fetch2
-    from pathlib import Path
 
     json_file = d.getVar("FACTORY_APPS_JSON_FILE")
     rootfs = d.getVar("IMAGE_ROOTFS")
-    dl_dir = d.getVar("FACTORY_APPS_DOWNLOAD_DIR")
+    install_path = d.getVar("FACTORY_APPS_PATH")
 
     if not json_file:
         bb.warn("FACTORY_APPS_JSON_FILE not set; skipping factory apps install")
@@ -28,37 +21,23 @@ python factory_apps_installer_run() {
         bb.warn(f"Factory apps JSON manifest not found: {json_file} (skipping)")
         return
 
+    if not install_path:
+        bb.fatal("factoryapp 'installpath' not set!")
+
     bb.note(f"Reading factory apps manifest: {json_file}")
     
     try:
         with open(json_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
+            factory_apps = json.load(f)
     except (json.JSONDecodeError, IOError) as e:
         bb.fatal(f"Failed to read or parse JSON manifest {json_file}: {e}")
 
-    if not isinstance(data, dict):
-        bb.fatal(f"Expected JSON to be an object/dict, got: {type(data).__name__}")
-
-    # Extract global configuration
-    install_path = d.getVar("FACTORY_APPS_PATH")
-    install_package_name = data.get("installpackagename", "")
-    factory_apps = data.get("factoryapps", [])
-
-    if not install_path:
-        bb.fatal("Missing 'installpath' in factory apps JSON")
-    
-    if not install_package_name:
-        bb.fatal("Missing 'installpackagename' in factory apps JSON")
-
     if not isinstance(factory_apps, list):
-        bb.fatal(f"Expected 'factoryapps' to be a list, got: {type(factory_apps).__name__}")
+        bb.fatal(f"Expected JSON to be a list of apps, got: {type(factory_apps).__name__}")
 
     if not factory_apps:
         bb.warn("No factory apps found in JSON manifest")
         return
-
-    bb.note(f"Factory apps config: installpath='{install_path}', installpackagename='{install_package_name}'")
-    bb.note(f"Processing {len(factory_apps)} factory app(s)")
 
     def fetch_file(src_uri, sha_value, package_name):
         try:
@@ -73,7 +52,7 @@ python factory_apps_installer_run() {
                 fetch_uri = f"{src_uri};sha256sum={sha_value_clean}"
             
             bb.note(f"Fetching: {fetch_uri}")
-            
+
             # Create fetcher instance
             # We need to create a FetchData object
             fetcher = bb.fetch2.Fetch([fetch_uri], d)
@@ -89,7 +68,7 @@ python factory_apps_installer_run() {
                 bb.fatal(f"Fetched file not found: {local_path}")
             
             bb.note(f"Successfully fetched to: {local_path}")
-            
+
             return local_path
             
         except bb.fetch2.FetchError as e:
@@ -97,11 +76,11 @@ python factory_apps_installer_run() {
         except Exception as e:
             bb.fatal(f"Unexpected error fetching {src_uri}: {e}")
 
-    def install_package(src_file, package_name):
-        """Install package to final destination with correct name."""
-        # Build destination path: ${IMAGE_ROOTFS}${installpath}/${packagename}/${installpackagename}
-        dest_dir = os.path.join(rootfs, install_path.lstrip("/"), package_name)
-        dest_file = os.path.join(dest_dir, install_package_name)
+    def copy_package(src_file, package_name):
+        """Copy package to final destination."""
+        # Build destination path: ${IMAGE_ROOTFS}${installpath}
+        dest_dir = os.path.join(rootfs, install_path.lstrip("/"))
+        dest_file = os.path.join(dest_dir, package_name)
         
         bb.note(f"Installing package '{package_name}' to: {dest_file}")
         
@@ -124,7 +103,7 @@ python factory_apps_installer_run() {
 
         # Extract fields
         package_name = app.get("packagename", "")
-        src_path = app.get("srcpath", "") or app.get("sourcepath", "")
+        src_path = app.get("srcpath", "")
         sha_value = app.get("sha", "")
 
         if not package_name:
@@ -142,13 +121,14 @@ python factory_apps_installer_run() {
         # Use BitBake fetcher to handle all protocols (file://, http://, https://, ftp://, etc.)
         local_file = fetch_file(src_path, sha_value, package_name)
         
-        # Install the fetched file
-        install_package(local_file, package_name)
+        # Copy the fetched file
+        copy_package(local_file, package_name)
 
     # Process each factory app
     for idx, app in enumerate(factory_apps):
         process_app(app, idx)
     
+
     bb.note(f"Factory apps installation complete: {len(factory_apps)} app(s) processed")
 }
 
@@ -156,4 +136,3 @@ python factory_apps_installer_postprocess() {
     """Rootfs postprocess hook to install factory apps."""
     bb.build.exec_func('factory_apps_installer_run', d)
 }
-
