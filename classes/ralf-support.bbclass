@@ -23,12 +23,12 @@
 # creates dedicated ralf user and group with proper permissions for RALF applications.
 # Usage: Inherit this class in your recipe or image file to enable RALF support.
 
-SUMMARY = "Add RALF Support - runtime required user and group to the image created"
+SUMMARY = "Add RALF support: add required runtime user and group to the created image"
 
 inherit extrausers
 
-RALF_UID = "30000"
-RALF_GID = "30000"
+RALF_UID ?= "30000"
+RALF_GID ?= "30000"
 
 EXTRA_USERS_PARAMS += " \
     groupadd -g ${RALF_GID} ralf; \

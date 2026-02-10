@@ -21,4 +21,4 @@ IMAGE_CLASSES += "package_categories"
 IMAGE_CLASSES += "post-rootfs-hooks"
 
 # Enable RALF support
-USER_CLASSES:append = " ${@bb.utils.contains('DISTRO_FEATURES', 'enable_ralf', 'ralf-support', '', d)}"
+IMAGE_CLASSES += " ${@bb.utils.contains('DISTRO_FEATURES', 'enable_ralf', 'ralf-support', '', d)}"
