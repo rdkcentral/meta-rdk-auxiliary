@@ -35,7 +35,7 @@ Each entry supports:
   - Fetch URI for the app artifact.
   - Examples: `https://example.com/app.bolt`, `file:///path/to/app.bolt`.
 
-- `sha` (optional)
+- `sha256sum` (optional)
   - SHA-256 checksum (hex) for the artifact.
   - If provided, it is passed to the BitBake fetcher as `;sha256sum=<sha>`.
   - If omitted, the class logs a warning and proceeds without verification.
@@ -46,7 +46,7 @@ Each entry supports:
   {
     "packagename": "app.bolt",
     "srcpath": "https://example.com/app.bolt",
-    "sha": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    "sha256sum": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
   }
 ]
 ```
