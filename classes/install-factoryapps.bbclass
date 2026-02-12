@@ -1,3 +1,20 @@
+# Factory Apps Installer BBClass
+#
+# Installs factory applications into rootfs during image creation.
+#
+# Configuration:
+#   FACTORY_APPS_JSON_FILE - Path to JSON manifest
+#   FACTORY_APPS_PATH      - Installation directory
+#
+# Example JSON:
+#   [
+#     {
+#       "packagename": "app.bolt",
+#       "srcpath": "https://example.com/app.bolt",
+#       "sha": "abc123..."
+#     }
+#   ]
+
 inherit python3native
 
 # Hook into rootfs creation
@@ -50,6 +67,8 @@ python factory_apps_installer_run() {
                 sha_value_clean = sha_value.strip().lower()
                 # BitBake fetcher expects checksums in SRC_URI or via params
                 fetch_uri = f"{src_uri};sha256sum={sha_value_clean}"
+            else:
+                bb.warn(f"No SHA provided for '{package_name}' - skipping verification")
             
             bb.note(f"Fetching: {fetch_uri}")
 
@@ -88,7 +107,6 @@ python factory_apps_installer_run() {
         os.makedirs(dest_dir, exist_ok=True)
         
         # Copy and rename the file
-        import shutil
         shutil.copy2(src_file, dest_file)
         
         # Set appropriate permissions (readable by all, writable by owner)
@@ -98,37 +116,44 @@ python factory_apps_installer_run() {
 
     def process_app(app, idx):
         """Process a single factory app entry."""
-        if not isinstance(app, dict):
-            bb.fatal(f"Factory app entry #{idx} is not an object/dict")
+        try:
+            if not isinstance(app, dict):
+                bb.warn(f"Factory app entry #{idx} is not an object/dict")
+                return False
 
-        # Extract fields
-        package_name = app.get("packagename", "")
-        src_path = app.get("srcpath", "")
-        sha_value = app.get("sha", "")
+            # Extract fields
+            package_name = app.get("packagename", "")
+            src_path = app.get("srcpath", "")
+            sha_value = app.get("sha", "")
 
-        if not package_name:
-            bb.fatal(f"Factory app entry #{idx} missing 'packagename': {app}")
+            if not package_name:
+                bb.warn(f"Factory app entry #{idx} missing 'packagename': {app}")
+                return False
+            if not src_path:
+                bb.warn(f"Factory app entry #{idx} ('{package_name}') missing source path field: {app}")
+                return False
+
+            # Validate package name - prevent directory traversal
+            if ".." in package_name or package_name.startswith("/") or package_name.startswith("\\"):
+                bb.fatal(f"Invalid packagename '{package_name}': potential directory traversal detected")
+
+            bb.note(f"Processing factory app [{idx}]: packagename='{package_name}', srcpath='{src_path}'")
+
+            # Use BitBake fetcher to handle all protocols (file://, http://, https://, ftp://, etc.)
+            local_file = fetch_file(src_path, sha_value, package_name)
         
-        if not src_path:
-            bb.fatal(f"Factory app entry #{idx} ('{package_name}') missing 'srcpath' or 'sourcepath': {app}")
-
-        # Validate package name - prevent directory traversal
-        if ".." in package_name or package_name.startswith("/") or package_name.startswith("\\"):
-            bb.fatal(f"Invalid packagename '{package_name}': potential directory traversal detected")
-
-        bb.note(f"Processing factory app [{idx}]: packagename='{package_name}', srcpath='{src_path}'")
-
-        # Use BitBake fetcher to handle all protocols (file://, http://, https://, ftp://, etc.)
-        local_file = fetch_file(src_path, sha_value, package_name)
+            # Copy the fetched file
+            copy_package(local_file, package_name)
+            return True
         
-        # Copy the fetched file
-        copy_package(local_file, package_name)
+        except Exception as e:
+            bb.warn(f"Failed to process package: {e}")
+            return False
 
     # Process each factory app
     for idx, app in enumerate(factory_apps):
         process_app(app, idx)
     
-
     bb.note(f"Factory apps installation complete: {len(factory_apps)} app(s) processed")
 }
 
