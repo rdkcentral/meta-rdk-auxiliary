@@ -39,7 +39,7 @@ python factory_apps_installer_run() {
         return
 
     if not install_path:
-        bb.fatal("factoryapp 'installpath' not set!")
+        bb.fatal("FACTORY_APPS_PATH not set; please set FACTORY_APPS_PATH to the factory apps install directory")
 
     bb.note(f"Reading factory apps manifest: {json_file}")
     
@@ -85,6 +85,10 @@ python factory_apps_installer_run() {
             # Verify the file exists
             if not os.path.exists(local_path):
                 bb.fatal(f"Fetched file not found: {local_path}")
+
+            # Ensure the fetched path is a regular file, not a directory or other type
+            if not os.path.isfile(local_path):
+                bb.fatal(f"Fetched path is not a regular file: {local_path}")
             
             bb.note(f"Successfully fetched to: {local_path}")
 
@@ -147,7 +151,14 @@ python factory_apps_installer_run() {
             return True
         
         except Exception as e:
-            bb.warn(f"Failed to process package: {e}")
+            # Include index and, when available, packagename and srcpath for easier troubleshooting
+            pkg_name = app.get("packagename") if isinstance(app, dict) else None
+            src_path = app.get("srcpath") if isinstance(app, dict) else None
+            bb.warn(
+                f"Failed to process package at index {idx}"
+                f"{f\", packagename='{pkg_name}'\" if pkg_name else ''}"
+                f"{f\", srcpath='{src_path}'\" if src_path else ''}: {e}"
+            )
             return False
 
     # Process each factory app
