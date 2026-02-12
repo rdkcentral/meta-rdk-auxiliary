@@ -6,14 +6,8 @@
 #   FACTORY_APPS_JSON_FILE - Path to JSON manifest
 #   FACTORY_APPS_PATH      - Installation directory
 #
-# Example JSON:
-#   [
-#     {
-#       "packagename": "app.bolt",
-#       "srcpath": "https://example.com/app.bolt",
-#       "sha": "abc123..."
-#     }
-#   ]
+# Detailed documentation:
+# See: docs/install-factoryapps.md
 
 inherit python3native
 
@@ -23,7 +17,9 @@ ROOTFS_POSTPROCESS_COMMAND += " factory_apps_installer_postprocess; "
 python factory_apps_installer_run() {
     import json
     import os
+    import posixpath
     import shutil
+    import bb.utils
     import bb.fetch2
 
     json_file = d.getVar("FACTORY_APPS_JSON_FILE")
@@ -41,8 +37,46 @@ python factory_apps_installer_run() {
     if not install_path:
         bb.fatal("FACTORY_APPS_PATH not set; please set FACTORY_APPS_PATH to the factory apps install directory")
 
+    def normalize_and_validate_install_path(path_value):
+        """Validate FACTORY_APPS_PATH and return a normalized POSIX path.
+
+        The path is expected to be an absolute POSIX path within the target rootfs.
+        """
+        if not isinstance(path_value, str) or not path_value.strip():
+            bb.fatal("FACTORY_APPS_PATH is empty")
+
+        raw = path_value.strip()
+
+        # Treat FACTORY_APPS_PATH as a target (POSIX) path; reject Windows separators.
+        if "\\" in raw:
+            bb.fatal(f"Invalid FACTORY_APPS_PATH '{raw}': backslashes are not allowed")
+
+        if not raw.startswith("/"):
+            bb.fatal(f"Invalid FACTORY_APPS_PATH '{raw}': must be an absolute path (start with '/')")
+
+        # Reject any '..' path elements to avoid escapes when combined with IMAGE_ROOTFS.
+        parts = [p for p in raw.split("/") if p]
+        if any(p == ".." for p in parts):
+            bb.fatal(f"Invalid FACTORY_APPS_PATH '{raw}': '..' is not allowed")
+
+        normalized = posixpath.normpath(raw)
+        # normpath can remove trailing slashes; ensure it remains absolute
+        if not normalized.startswith("/"):
+            bb.fatal(f"Invalid FACTORY_APPS_PATH '{raw}': normalization produced a non-absolute path")
+
+        return normalized
+
+    install_path_norm = normalize_and_validate_install_path(install_path)
+
+    def ensure_under_rootfs(dest_path):
+        """Fatal if dest_path resolves outside IMAGE_ROOTFS."""
+        rootfs_real = os.path.realpath(rootfs)
+        dest_real = os.path.realpath(dest_path)
+        if dest_real != rootfs_real and not dest_real.startswith(rootfs_real + os.sep):
+            bb.fatal(f"Destination escapes IMAGE_ROOTFS: '{dest_path}' -> '{dest_real}' (rootfs='{rootfs_real}')")
+
     bb.note(f"Reading factory apps manifest: {json_file}")
-    
+
     try:
         with open(json_file, "r", encoding="utf-8") as f:
             factory_apps = json.load(f)
@@ -61,27 +95,27 @@ python factory_apps_installer_run() {
             # Create a fetch data object
             # SRC_URI format: "protocol://path;param=value"
             fetch_uri = src_uri
-            
+
             # Add checksum to URI if provided (BitBake can verify automatically)
             if sha_value:
                 sha_value_clean = sha_value.strip().lower()
                 # BitBake fetcher expects checksums in SRC_URI or via params
                 fetch_uri = f"{src_uri};sha256sum={sha_value_clean}"
             else:
-                bb.warn(f"No SHA provided for '{package_name}' - skipping verification")
-            
+                bb.warn(f"No sha256sum provided for '{package_name}' - skipping verification")
+
             bb.note(f"Fetching: {fetch_uri}")
 
             # Create fetcher instance
             # We need to create a FetchData object
             fetcher = bb.fetch2.Fetch([fetch_uri], d)
-            
+
             # Download the file (uses DL_DIR for caching)
             fetcher.download()
-            
+
             # Get the local file path
             local_path = fetcher.localpath(fetch_uri)
-            
+
             # Verify the file exists
             if not os.path.exists(local_path):
                 bb.fatal(f"Fetched file not found: {local_path}")
@@ -89,11 +123,11 @@ python factory_apps_installer_run() {
             # Ensure the fetched path is a regular file, not a directory or other type
             if not os.path.isfile(local_path):
                 bb.fatal(f"Fetched path is not a regular file: {local_path}")
-            
+
             bb.note(f"Successfully fetched to: {local_path}")
 
             return local_path
-            
+
         except bb.fetch2.FetchError as e:
             bb.fatal(f"Failed to fetch {src_uri}: {e}")
         except Exception as e:
@@ -101,21 +135,25 @@ python factory_apps_installer_run() {
 
     def copy_package(src_file, package_name):
         """Copy package to final destination."""
-        # Build destination path: ${IMAGE_ROOTFS}${installpath}
-        dest_dir = os.path.join(rootfs, install_path.lstrip("/"))
+        # Build destination path: ${IMAGE_ROOTFS}${FACTORY_APPS_PATH}
+        dest_dir = os.path.join(rootfs, install_path_norm.lstrip("/"))
         dest_file = os.path.join(dest_dir, package_name)
-        
+
+        # Ensure we never write outside the rootfs (including via symlinks).
+        ensure_under_rootfs(dest_dir)
+        ensure_under_rootfs(dest_file)
+
         bb.note(f"Installing package '{package_name}' to: {dest_file}")
-        
+
         # Create destination directory
-        os.makedirs(dest_dir, exist_ok=True)
-        
+        bb.utils.mkdirhier(dest_dir)
+
         # Copy and rename the file
         shutil.copy2(src_file, dest_file)
-        
+
         # Set appropriate permissions (readable by all, writable by owner)
         os.chmod(dest_file, 0o644)
-        
+
         bb.note(f"Successfully installed '{package_name}' -> {dest_file}")
 
     def process_app(app, idx):
@@ -128,7 +166,7 @@ python factory_apps_installer_run() {
             # Extract fields
             package_name = app.get("packagename", "")
             src_path = app.get("srcpath", "")
-            sha_value = app.get("sha", "")
+            sha_value = app.get("sha256sum", "")
 
             if not package_name:
                 bb.warn(f"Factory app entry #{idx} missing 'packagename': {app}")
@@ -141,15 +179,19 @@ python factory_apps_installer_run() {
             if ".." in package_name or package_name.startswith("/") or package_name.startswith("\\"):
                 bb.fatal(f"Invalid packagename '{package_name}': potential directory traversal detected")
 
+            # Enforce plain filename to avoid nested paths and traversal complexity
+            if "/" in package_name or "\\" in package_name:
+                bb.fatal(f"Invalid packagename '{package_name}': must be a plain filename (no '/' or '\\')")
+
             bb.note(f"Processing factory app [{idx}]: packagename='{package_name}', srcpath='{src_path}'")
 
             # Use BitBake fetcher to handle all protocols (file://, http://, https://, ftp://, etc.)
             local_file = fetch_file(src_path, sha_value, package_name)
-        
+
             # Copy the fetched file
             copy_package(local_file, package_name)
             return True
-        
+
         except Exception as e:
             # Include index and, when available, packagename and srcpath for easier troubleshooting
             pkg_name = app.get("packagename") if isinstance(app, dict) else None
@@ -164,7 +206,7 @@ python factory_apps_installer_run() {
     # Process each factory app
     for idx, app in enumerate(factory_apps):
         process_app(app, idx)
-    
+
     bb.note(f"Factory apps installation complete: {len(factory_apps)} app(s) processed")
 }
 

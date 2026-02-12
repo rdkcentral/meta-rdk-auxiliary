@@ -3,14 +3,14 @@
 ## Overview
 `install-factoryapps.bbclass` installs a set of “factory applications” into the image root filesystem during the rootfs creation phase.
 
-The apps to install are described by a JSON manifest file. Each manifest entry points to a fetchable URI (e.g., `https://…` or `file://…`). The class downloads each app using BitBake’s fetcher and then copies it into the configured install directory inside `${IMAGE_ROOTFS}`.
+Apps are described by a JSON manifest. Each entry provides a fetch URI, which is downloaded via [BitBake’s fetcher](https://docs.yoctoproject.org/bitbake/bitbake-user-manual/bitbake-user-manual-fetching.html#fetchers) and copied into `${IMAGE_ROOTFS}${FACTORY_APPS_PATH}`.
 
 ## Key Behavior
-- Runs as a rootfs postprocess hook via `ROOTFS_POSTPROCESS_COMMAND`.
-- Uses `bb.fetch2.Fetch(...)` so downloads are cached in `DL_DIR` (standard BitBake download cache).
-- Copies each fetched artifact into `${IMAGE_ROOTFS}${FACTORY_APPS_PATH}` with mode `0644`.
-- Prevents obvious directory traversal via `packagename` validation.
-- If the manifest is missing or empty, it logs a warning and skips installation.
+- Runs as a rootfs postprocess hook (`ROOTFS_POSTPROCESS_COMMAND`).
+- Fetches via `bb.fetch2` (cached in `DL_DIR`) and installs into `${IMAGE_ROOTFS}${FACTORY_APPS_PATH}/<packagename>` with mode `0644`.
+- Validates `packagename` to prevent obvious directory traversal.
+- Skips invalid entries (wrong type, missing or empty fields) with a warning.
+- Duplicate `packagename` entries overwrite earlier installs and missing `sha256sum` warns and proceeds without verification.
 
 ## Configuration
 Set the following variables in your image, distro config, or `local.conf`:
@@ -35,10 +35,10 @@ Each entry supports:
   - Fetch URI for the app artifact.
   - Examples: `https://example.com/app.bolt`, `file:///path/to/app.bolt`.
 
-- `sha256sum` (optional)
+- `sha256sum` (required)
   - SHA-256 checksum (hex) for the artifact.
-  - If provided, it is passed to the BitBake fetcher as `;sha256sum=<sha>`.
-  - If omitted, the class logs a warning and proceeds without verification.
+  - It is appended to the fetch URI as `;sha256sum=<sha256sum>` so BitBake can verify the download.
+  - If omitted, the current class implementation logs a warning and proceeds without verification.
 
 ### Example
 ```json
