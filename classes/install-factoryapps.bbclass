@@ -198,8 +198,8 @@ python factory_apps_installer_run() {
             src_path = app.get("srcpath") if isinstance(app, dict) else None
             bb.warn(
                 f"Failed to process package at index {idx}"
-                f"{f\", packagename='{pkg_name}'\" if pkg_name else ''}"
-                f"{f\", srcpath='{src_path}'\" if src_path else ''}: {e}"
+                f"{f', packagename={pkg_name!r}' if pkg_name else ''}"
+                f"{f', srcpath={src_path!r}' if src_path else ''}: {e}"
             )
             return False
 
