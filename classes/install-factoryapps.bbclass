@@ -109,15 +109,30 @@ python factory_apps_installer_run() {
         bb.warn("No factory apps found in JSON manifest")
         return
 
-    def fetch_file(src_uri, sha_value, package_name):
+    def fetch_file(src_uri, sha_value, sha_present, package_name):
         try:
             # Create a fetch data object
             # SRC_URI format: "protocol://path;param=value"
             fetch_uri = src_uri
 
             # Add checksum to URI if provided (BitBake can verify automatically)
-            if sha_value:
+            sha_value_clean = ""
+            if not sha_present or sha_value is None:
+                sha_value_clean = ""
+            elif isinstance(sha_value, str):
                 sha_value_clean = sha_value.strip().lower()
+            else:
+                bb.fatal(
+                    f"Invalid sha256sum for '{package_name}': expected a string, got {type(sha_value).__name__}"
+                )
+
+            if sha_value_clean:
+                # Validate 64 hex chars for clearer errors than fetcher failures.
+                if len(sha_value_clean) != 64 or any(c not in "0123456789abcdef" for c in sha_value_clean):
+                    bb.fatal(
+                        f"Invalid sha256sum for '{package_name}': must be 64 hex characters (got {sha_value!r})"
+                    )
+
                 # BitBake fetcher expects checksums in SRC_URI or via params
                 fetch_uri = f"{src_uri};sha256sum={sha_value_clean}"
             else:
@@ -205,7 +220,8 @@ python factory_apps_installer_run() {
             bb.note(f"Processing factory app [{idx}]: packagename='{package_name}', srcuri='{src_uri}'")
 
             # Use BitBake fetcher to handle all protocols (file://, http://, https://, ftp://, etc.)
-            local_file = fetch_file(src_uri, sha_value, package_name)
+            sha_present = "sha256sum" in app
+            local_file = fetch_file(src_uri, sha_value, sha_present, package_name)
 
             # Copy the fetched file
             copy_package(local_file, package_name)
