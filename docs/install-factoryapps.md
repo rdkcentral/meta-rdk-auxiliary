@@ -39,6 +39,7 @@ Each entry supports:
 
 - `sha256sum` (required)
   - SHA-256 checksum (64 hex chars) for the artifact.
+  - Must be a JSON string when present (i.e., quoted); non-string types are rejected.
   - It is appended to the fetch URI as `;sha256sum=<sha256sum>` so BitBake can verify the download.
   - If omitted or empty/whitespace, the class logs a warning and proceeds without verification (development purpose).
 

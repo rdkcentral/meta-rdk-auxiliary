@@ -129,7 +129,7 @@ python factory_apps_installer_run() {
                 f"Duplicate packagename {pkg_name!r} in factory apps manifest: "
                 f"first at index {first_idx}, again at index {idx}"
                 f"{f', srcuri={src_uri!r}' if src_uri else ''}. "
-                "Later entries will overwrite earlier installs."
+                "This is allowed; later entries will overwrite earlier installs."
             )
         else:
             seen_packagenames[pkg_name] = idx
@@ -142,16 +142,20 @@ python factory_apps_installer_run() {
 
             # Add checksum to URI if provided (BitBake can verify automatically)
             sha_value_clean = ""
-            if not sha_present:
-                sha_value_clean = ""
-            elif sha_value is None:
-                sha_value_clean = ""
-            elif isinstance(sha_value, str):
-                sha_value_clean = sha_value.strip().lower()
-            else:
-                bb.fatal(
-                    f"Invalid sha256sum for '{package_name}': expected a string, got {type(sha_value).__name__}"
-                )
+            if sha_present:
+                if sha_value is None:
+                    sha_value_clean = ""
+                elif isinstance(sha_value, (bool, int, float)):
+                    bb.fatal(
+                        f"Invalid sha256sum for '{package_name}': must be a string (64 hex chars), got {type(sha_value).__name__} ({sha_value!r}). "
+                        "If present in JSON, sha256sum must be quoted."
+                    )
+                elif not isinstance(sha_value, str):
+                    bb.fatal(
+                        f"Invalid sha256sum for '{package_name}': must be a string (64 hex chars), got {type(sha_value).__name__}"
+                    )
+                else:
+                    sha_value_clean = sha_value.strip().lower()
 
             if sha_value_clean:
                 # Validate 64 hex chars for clearer errors than fetcher failures.
@@ -194,112 +198,68 @@ python factory_apps_installer_run() {
         except Exception as e:
             bb.fatal(f"Unexpected error fetching {src_uri}: {e}")
 
-    def copy_package(src_file, package_name):
+    def copy_package(src_file, package_name, overwrite_expected):
         """Copy package to final destination."""
+        rel_dir_posix = install_path_norm.lstrip("/")
+        rel_parts = [p for p in rel_dir_posix.split("/") if p]
+
         # Build destination path: ${IMAGE_ROOTFS}${FACTORY_APPS_PATH}
-        dest_dir = os.path.join(rootfs, install_path_norm.lstrip("/"))
+        dest_dir = os.path.join(rootfs, *rel_parts) if rel_parts else rootfs
         dest_file = os.path.join(dest_dir, package_name)
 
         bb.note(f"Installing package '{package_name}' to: {dest_file}")
 
-        # Ensure we never write outside the rootfs (including via symlinks).
-        # Note: realpath-based checks can have TOCTOU windows; we additionally use
-        # dir_fd + O_NOFOLLOW operations (when available) to avoid following symlinks.
+        # Ensure we never write outside the rootfs.
         ensure_under_rootfs(dest_dir)
         ensure_under_rootfs(dest_file)
 
-        def safe_install_file_into_rootfs(src_path, rel_dir_posix, filename):
-            """Safely create rel_dir_posix under IMAGE_ROOTFS and write filename into it.
-
-            Uses openat-style operations to avoid symlink traversal where supported.
-            """
-            o_nofollow = getattr(os, "O_NOFOLLOW", 0)
-            o_directory = getattr(os, "O_DIRECTORY", 0)
-            o_cloexec = getattr(os, "O_CLOEXEC", 0)
-
-            root_flags = os.O_RDONLY | o_cloexec
-            if o_directory:
-                root_flags |= o_directory
-            if o_nofollow:
-                root_flags |= o_nofollow
-
-            root_fd = os.open(rootfs, root_flags)
-            fds_to_close = [root_fd]
-
+        # Create destination directory path under IMAGE_ROOTFS, refusing to traverse symlinks.
+        cur_dir = rootfs
+        for part in rel_parts:
+            next_dir = os.path.join(cur_dir, part)
             try:
-                cur_fd = root_fd
+                st = os.lstat(next_dir)
+                if stat.S_ISLNK(st.st_mode):
+                    bb.fatal(
+                        f"Refusing to install into symlinked directory under IMAGE_ROOTFS: {next_dir!r}"
+                    )
+                if not stat.S_ISDIR(st.st_mode):
+                    bb.fatal(
+                        f"Refusing to install into non-directory under IMAGE_ROOTFS: {next_dir!r}"
+                    )
+            except FileNotFoundError:
+                os.mkdir(next_dir, mode=0o755)
+            cur_dir = next_dir
 
-                # rel_dir_posix is a POSIX path (from FACTORY_APPS_PATH); split on '/'.
-                rel_parts = [p for p in rel_dir_posix.split("/") if p]
-
-                for part in rel_parts:
-                    # Create directory if missing (under the currently-open directory fd).
-                    try:
-                        os.mkdir(part, mode=0o755, dir_fd=cur_fd)
-                    except FileExistsError:
-                        pass
-
-                    st = os.lstat(part, dir_fd=cur_fd)
-                    if stat.S_ISLNK(st.st_mode):
-                        bb.fatal(
-                            f"Refusing to install into symlinked directory under IMAGE_ROOTFS: {part!r}"
-                        )
-                    if not stat.S_ISDIR(st.st_mode):
-                        bb.fatal(
-                            f"Refusing to install into non-directory under IMAGE_ROOTFS: {part!r}"
-                        )
-
-                    next_flags = os.O_RDONLY | o_cloexec
-                    if o_directory:
-                        next_flags |= o_directory
-                    if o_nofollow:
-                        next_flags |= o_nofollow
-                    next_fd = os.open(part, next_flags, dir_fd=cur_fd)
-                    fds_to_close.append(next_fd)
-                    cur_fd = next_fd
-
-                # Create/truncate destination file without following symlinks.
-                file_flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | o_cloexec
-                if o_nofollow:
-                    file_flags |= o_nofollow
-
-                dest_fd = os.open(filename, file_flags, 0o644, dir_fd=cur_fd)
-                try:
-                    with os.fdopen(dest_fd, "wb") as out_f, open(src_path, "rb") as in_f:
-                        shutil.copyfileobj(in_f, out_f)
-                        os.fchmod(out_f.fileno(), 0o644)
-                except Exception:
-                    # Ensure fd is closed if fdopen failed partway.
-                    try:
-                        os.close(dest_fd)
-                    except Exception:
-                        pass
-                    raise
-
-            finally:
-                for fd in reversed(fds_to_close):
-                    try:
-                        os.close(fd)
-                    except Exception:
-                        pass
-
-        # Prefer secure dir_fd + O_NOFOLLOW install when supported.
+        # If a non-symlink file already exists, we will overwrite it.
+        # Warn only when this isn't an expected overwrite (e.g. duplicate packagename).
         try:
-            safe_install_file_into_rootfs(src_file, install_path_norm.lstrip("/"), package_name)
-        except Exception as e:
-            # Fall back to traditional behavior if the host OS/filesystem doesn't support
-            # the required flags/dir_fd semantics (e.g., non-POSIX environments).
-            bb.warn(f"Falling back to non-atomic install for '{package_name}': {e}")
-            bb.utils.mkdirhier(dest_dir)
-            shutil.copy2(src_file, dest_file)
-            os.chmod(dest_file, 0o644)
+            existing_st = os.lstat(dest_file)
+            if stat.S_ISLNK(existing_st.st_mode):
+                bb.fatal(
+                    f"Refusing to overwrite symlink under IMAGE_ROOTFS: {dest_file!r}"
+                )
+            if not stat.S_ISREG(existing_st.st_mode):
+                bb.fatal(
+                    f"Refusing to overwrite non-regular file under IMAGE_ROOTFS: {dest_file!r}"
+                )
+            if not overwrite_expected:
+                bb.warn(
+                    f"Destination already exists and will be overwritten for '{package_name}': {dest_file}"
+                )
+        except FileNotFoundError:
+            pass
+
+        # Copy artifact into IMAGE_ROOTFS (intentionally overwrites when duplicates are present).
+        shutil.copy2(src_file, dest_file)
+        os.chmod(dest_file, 0o644)
 
         # Post-validate final destination (defense in depth).
         ensure_under_rootfs(dest_file)
 
         bb.note(f"Successfully installed '{package_name}' -> {dest_file}")
 
-    def process_app(app, idx):
+    def process_app(app, idx, installed_packagenames_in_run):
         """Process a single factory app entry."""
         try:
             if not isinstance(app, dict):
@@ -321,6 +281,8 @@ python factory_apps_installer_run() {
             if not package_name:
                 bb.warn(f"Factory app entry #{idx} has empty/whitespace-only 'packagename': {app}")
                 return False
+
+            overwrite_expected = package_name in installed_packagenames_in_run
 
             # Validate package name early (security-critical) before any other operations.
             if ".." in package_name or "/" in package_name or "\\" in package_name:
@@ -356,7 +318,8 @@ python factory_apps_installer_run() {
             local_file = fetch_file(src_uri, sha_value, sha_present, package_name)
 
             # Copy the fetched file
-            copy_package(local_file, package_name)
+            copy_package(local_file, package_name, overwrite_expected=overwrite_expected)
+            installed_packagenames_in_run.add(package_name)
             return True
 
         except Exception as e:
@@ -377,11 +340,14 @@ python factory_apps_installer_run() {
             )
             return False
 
-    # Process each factory app
+    # Process each factory app.
+    # Note: any bb.fatal encountered during processing stops the build immediately;
+    # the summary counts below only apply when processing completes without fatal.
     installed_count = 0
     skipped_count = 0
+    installed_packagenames_in_run = set()
     for idx, app in enumerate(factory_apps):
-        if process_app(app, idx):
+        if process_app(app, idx, installed_packagenames_in_run):
             installed_count += 1
         else:
             skipped_count += 1
