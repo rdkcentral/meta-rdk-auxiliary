@@ -109,7 +109,7 @@ python factory_apps_installer_run() {
         bb.warn("No factory apps found in JSON manifest")
         return
 
-    def fetch_file(src_uri, sha_value, package_name):
+    def fetch_file(src_uri, sha_value, sha_present, package_name):
         try:
             # Create a fetch data object
             # SRC_URI format: "protocol://path;param=value"
@@ -117,9 +117,11 @@ python factory_apps_installer_run() {
 
             # Add checksum to URI if provided (BitBake can verify automatically)
             sha_value_clean = ""
-            if isinstance(sha_value, str):
+            if not sha_present or sha_value is None:
+                sha_value_clean = ""
+            elif isinstance(sha_value, str):
                 sha_value_clean = sha_value.strip().lower()
-            elif sha_value:
+            else:
                 bb.fatal(
                     f"Invalid sha256sum for '{package_name}': expected a string, got {type(sha_value).__name__}"
                 )
@@ -218,7 +220,8 @@ python factory_apps_installer_run() {
             bb.note(f"Processing factory app [{idx}]: packagename='{package_name}', srcuri='{src_uri}'")
 
             # Use BitBake fetcher to handle all protocols (file://, http://, https://, ftp://, etc.)
-            local_file = fetch_file(src_uri, sha_value, package_name)
+            sha_present = "sha256sum" in app
+            local_file = fetch_file(src_uri, sha_value, sha_present, package_name)
 
             # Copy the fetched file
             copy_package(local_file, package_name)
