@@ -36,6 +36,7 @@ ROOTFS_POSTPROCESS_COMMAND += " factory_apps_installer_postprocess; "
 python factory_apps_installer_run() {
     import json
     import os
+    import stat
     import posixpath
     import shutil
     import bb.utils
@@ -109,6 +110,30 @@ python factory_apps_installer_run() {
         bb.warn("No factory apps found in JSON manifest")
         return
 
+    # Detect duplicate packagename entries to avoid silent overwrites.
+    seen_packagenames = {}
+    for idx, app in enumerate(factory_apps):
+        if not isinstance(app, dict):
+            continue
+
+        pkg_name = app.get("packagename")
+        if isinstance(pkg_name, str):
+            pkg_name = pkg_name.strip()
+        if not pkg_name:
+            continue
+
+        if pkg_name in seen_packagenames:
+            first_idx = seen_packagenames[pkg_name]
+            src_uri = app.get("srcuri")
+            bb.warn(
+                f"Duplicate packagename {pkg_name!r} in factory apps manifest: "
+                f"first at index {first_idx}, again at index {idx}"
+                f"{f', srcuri={src_uri!r}' if src_uri else ''}. "
+                "This is allowed; later entries will overwrite earlier installs."
+            )
+        else:
+            seen_packagenames[pkg_name] = idx
+
     def fetch_file(src_uri, sha_value, sha_present, package_name):
         try:
             # Create a fetch data object
@@ -117,14 +142,20 @@ python factory_apps_installer_run() {
 
             # Add checksum to URI if provided (BitBake can verify automatically)
             sha_value_clean = ""
-            if not sha_present or sha_value is None:
-                sha_value_clean = ""
-            elif isinstance(sha_value, str):
-                sha_value_clean = sha_value.strip().lower()
-            else:
-                bb.fatal(
-                    f"Invalid sha256sum for '{package_name}': expected a string, got {type(sha_value).__name__}"
-                )
+            if sha_present:
+                if sha_value is None:
+                    sha_value_clean = ""
+                elif isinstance(sha_value, (bool, int, float)):
+                    bb.fatal(
+                        f"Invalid sha256sum for '{package_name}': must be a string (64 hex chars), got {type(sha_value).__name__} ({sha_value!r}). "
+                        "If present in JSON, sha256sum must be quoted."
+                    )
+                elif not isinstance(sha_value, str):
+                    bb.fatal(
+                        f"Invalid sha256sum for '{package_name}': must be a string (64 hex chars), got {type(sha_value).__name__}"
+                    )
+                else:
+                    sha_value_clean = sha_value.strip().lower()
 
             if sha_value_clean:
                 # Validate 64 hex chars for clearer errors than fetcher failures.
@@ -167,30 +198,68 @@ python factory_apps_installer_run() {
         except Exception as e:
             bb.fatal(f"Unexpected error fetching {src_uri}: {e}")
 
-    def copy_package(src_file, package_name):
+    def copy_package(src_file, package_name, overwrite_expected):
         """Copy package to final destination."""
-        # Build destination path: ${IMAGE_ROOTFS}${FACTORY_APPS_PATH}
-        dest_dir = os.path.join(rootfs, install_path_norm.lstrip("/"))
-        dest_file = os.path.join(dest_dir, package_name)
+        rel_dir_posix = install_path_norm.lstrip("/")
+        rel_parts = [p for p in rel_dir_posix.split("/") if p]
 
-        # Ensure we never write outside the rootfs (including via symlinks).
-        ensure_under_rootfs(dest_dir)
-        ensure_under_rootfs(dest_file)
+        # Build destination path: ${IMAGE_ROOTFS}${FACTORY_APPS_PATH}
+        dest_dir = os.path.join(rootfs, *rel_parts) if rel_parts else rootfs
+        dest_file = os.path.join(dest_dir, package_name)
 
         bb.note(f"Installing package '{package_name}' to: {dest_file}")
 
-        # Create destination directory
-        bb.utils.mkdirhier(dest_dir)
+        # Ensure we never write outside the rootfs.
+        ensure_under_rootfs(dest_dir)
+        ensure_under_rootfs(dest_file)
 
-        # Copy and rename the file
+        # Create destination directory path under IMAGE_ROOTFS, refusing to traverse symlinks.
+        cur_dir = rootfs
+        for part in rel_parts:
+            next_dir = os.path.join(cur_dir, part)
+            try:
+                st = os.lstat(next_dir)
+                if stat.S_ISLNK(st.st_mode):
+                    bb.fatal(
+                        f"Refusing to install into symlinked directory under IMAGE_ROOTFS: {next_dir!r}"
+                    )
+                if not stat.S_ISDIR(st.st_mode):
+                    bb.fatal(
+                        f"Refusing to install into non-directory under IMAGE_ROOTFS: {next_dir!r}"
+                    )
+            except FileNotFoundError:
+                os.mkdir(next_dir, mode=0o755)
+            cur_dir = next_dir
+
+        # If a non-symlink file already exists, we will overwrite it.
+        # Warn only when this isn't an expected overwrite (e.g. duplicate packagename).
+        try:
+            existing_st = os.lstat(dest_file)
+            if stat.S_ISLNK(existing_st.st_mode):
+                bb.fatal(
+                    f"Refusing to overwrite symlink under IMAGE_ROOTFS: {dest_file!r}"
+                )
+            if not stat.S_ISREG(existing_st.st_mode):
+                bb.fatal(
+                    f"Refusing to overwrite non-regular file under IMAGE_ROOTFS: {dest_file!r}"
+                )
+            if not overwrite_expected:
+                bb.warn(
+                    f"Destination already exists and will be overwritten for '{package_name}': {dest_file}"
+                )
+        except FileNotFoundError:
+            pass
+
+        # Copy artifact into IMAGE_ROOTFS (intentionally overwrites when duplicates are present).
         shutil.copy2(src_file, dest_file)
-
-        # Set appropriate permissions (readable by all, writable by owner)
         os.chmod(dest_file, 0o644)
+
+        # Post-validate final destination (defense in depth).
+        ensure_under_rootfs(dest_file)
 
         bb.note(f"Successfully installed '{package_name}' -> {dest_file}")
 
-    def process_app(app, idx):
+    def process_app(app, idx, installed_packagenames_in_run):
         """Process a single factory app entry."""
         try:
             if not isinstance(app, dict):
@@ -198,24 +267,49 @@ python factory_apps_installer_run() {
                 return False
 
             # Extract fields
-            package_name = app.get("packagename", "")
-            src_uri = app.get("srcuri", "")
-            sha_value = app.get("sha256sum", "")
-
-            if not package_name:
+            package_name_raw = app.get("packagename")
+            if package_name_raw is None:
                 bb.warn(f"Factory app entry #{idx} missing 'packagename': {app}")
                 return False
-            if not src_uri:
-                bb.warn(f"Factory app entry #{idx} ('{package_name}') missing required field 'srcuri': {app}")
+            if not isinstance(package_name_raw, str):
+                bb.warn(
+                    f"Factory app entry #{idx} has invalid 'packagename' type: "
+                    f"expected string, got {type(package_name_raw).__name__}"
+                )
+                return False
+            package_name = package_name_raw.strip()
+            if not package_name:
+                bb.warn(f"Factory app entry #{idx} has empty/whitespace-only 'packagename': {app}")
                 return False
 
-            # Validate package name - prevent directory traversal and enforce plain filename
+            overwrite_expected = package_name in installed_packagenames_in_run
+
+            # Validate package name early (security-critical) before any other operations.
             if ".." in package_name or "/" in package_name or "\\" in package_name:
                 bb.fatal(
-                    f"Invalid packagename '{package_name}': must be a plain filename (no '..', '/' or '\\\\') "
+                    f"Invalid packagename '{package_name}': must be a plain filename (no '..', '/' or '\\') "
                     "to prevent directory traversal and ensure the artifact is installed directly under "
                     "FACTORY_APPS_PATH"
                 )
+
+            src_uri_raw = app.get("srcuri")
+            if src_uri_raw is None:
+                bb.warn(f"Factory app entry #{idx} ('{package_name}') missing required field 'srcuri': {app}")
+                return False
+            if not isinstance(src_uri_raw, str):
+                bb.warn(
+                    f"Factory app entry #{idx} ('{package_name}') has invalid 'srcuri' type: "
+                    f"expected string, got {type(src_uri_raw).__name__}"
+                )
+                return False
+            src_uri = src_uri_raw.strip()
+            if not src_uri:
+                bb.warn(
+                    f"Factory app entry #{idx} ('{package_name}') has empty/whitespace-only 'srcuri': {app}"
+                )
+                return False
+
+            sha_value = app.get("sha256sum", "")
 
             bb.note(f"Processing factory app [{idx}]: packagename='{package_name}', srcuri='{src_uri}'")
 
@@ -224,7 +318,8 @@ python factory_apps_installer_run() {
             local_file = fetch_file(src_uri, sha_value, sha_present, package_name)
 
             # Copy the fetched file
-            copy_package(local_file, package_name)
+            copy_package(local_file, package_name, overwrite_expected=overwrite_expected)
+            installed_packagenames_in_run.add(package_name)
             return True
 
         except Exception as e:
@@ -245,11 +340,27 @@ python factory_apps_installer_run() {
             )
             return False
 
-    # Process each factory app
+    # Process each factory app.
+    # Note: any bb.fatal encountered during processing stops the build immediately;
+    # the summary counts below only apply when processing completes without fatal.
+    installed_count = 0
+    skipped_count = 0
+    installed_packagenames_in_run = set()
     for idx, app in enumerate(factory_apps):
-        process_app(app, idx)
+        if process_app(app, idx, installed_packagenames_in_run):
+            installed_count += 1
+        else:
+            skipped_count += 1
 
-    bb.note(f"Factory apps installation complete: {len(factory_apps)} app(s) processed")
+    if skipped_count:
+        bb.warn(
+            f"Factory apps installation completed with issues: installed={installed_count}, "
+            f"skipped={skipped_count}, total={len(factory_apps)}"
+        )
+    else:
+        bb.note(
+            f"Factory apps installation complete: installed={installed_count}, total={len(factory_apps)}"
+        )
 }
 
 python factory_apps_installer_postprocess() {
