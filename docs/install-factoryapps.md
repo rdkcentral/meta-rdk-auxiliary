@@ -38,9 +38,9 @@ Each entry supports:
   - Examples: `https://example.com/app.bolt`, `file:///path/to/app.bolt`.
 
 - `sha256sum` (required)
-  - SHA-256 checksum (hex) for the artifact.
+  - SHA-256 checksum (64 hex chars) for the artifact.
   - It is appended to the fetch URI as `;sha256sum=<sha256sum>` so BitBake can verify the download.
-  - If omitted, the current class implementation logs a warning and proceeds without verification.
+  - If omitted or empty/whitespace, the class logs a warning and proceeds without verification (development purpose).
 
 ### Example
 ```json
