@@ -12,7 +12,7 @@ Apps are described by a JSON manifest. Each entry provides a fetch URI, which is
 - The class warns and skips an entry when it is malformed (wrong entry type, missing/empty fields).
 - The class fails the build (`bb.fatal`) for security- or correctness-critical errors such as invalid `packagename`, fetch failures, or fetched-file validation failures (because the requested artifact cannot be reliably installed).
 - Configuration/manifest problems are fatal and fail the build. This includes `FACTORY_APPS_PATH` not set when installation is enabled, an unreadable/unparseable manifest, a manifest that is not a JSON list, or an invalid `FACTORY_APPS_PATH`.
-- Duplicate `packagename` entries overwrite earlier installs and missing `sha256sum` warns and proceeds without verification.
+- Duplicate `packagename` entries overwrite earlier installs (a warning is logged) and missing `sha256sum` warns and proceeds without verification.
 
 ## Configuration
 Set the following variables in your image, distro config, or `local.conf`:
