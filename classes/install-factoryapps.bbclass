@@ -1,3 +1,22 @@
+##########################################################################
+# If not stated otherwise in this file or this component's LICENSE
+# file the following copyright and licenses apply:
+#
+# Copyright 2026 RDK Management
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+##########################################################################
+
 # Factory Apps Installer BBClass
 #
 # Installs factory applications into rootfs during image creation.
@@ -165,41 +184,48 @@ python factory_apps_installer_run() {
 
             # Extract fields
             package_name = app.get("packagename", "")
-            src_path = app.get("srcpath", "")
+            src_uri = app.get("srcuri", "")
             sha_value = app.get("sha256sum", "")
 
             if not package_name:
                 bb.warn(f"Factory app entry #{idx} missing 'packagename': {app}")
                 return False
-            if not src_path:
-                bb.warn(f"Factory app entry #{idx} ('{package_name}') missing source path field: {app}")
+            if not src_uri:
+                bb.warn(f"Factory app entry #{idx} ('{package_name}') missing required field 'srcuri': {app}")
                 return False
 
-            # Validate package name - prevent directory traversal
-            if ".." in package_name or package_name.startswith("/") or package_name.startswith("\\"):
-                bb.fatal(f"Invalid packagename '{package_name}': potential directory traversal detected")
+            # Validate package name - prevent directory traversal and enforce plain filename
+            if ".." in package_name or "/" in package_name or "\\" in package_name:
+                bb.fatal(
+                    f"Invalid packagename '{package_name}': must be a plain filename (no '..', '/' or '\\\\') "
+                    "to prevent directory traversal and ensure the artifact is installed directly under "
+                    "FACTORY_APPS_PATH"
+                )
 
-            # Enforce plain filename to avoid nested paths and traversal complexity
-            if "/" in package_name or "\\" in package_name:
-                bb.fatal(f"Invalid packagename '{package_name}': must be a plain filename (no '/' or '\\')")
-
-            bb.note(f"Processing factory app [{idx}]: packagename='{package_name}', srcpath='{src_path}'")
+            bb.note(f"Processing factory app [{idx}]: packagename='{package_name}', srcuri='{src_uri}'")
 
             # Use BitBake fetcher to handle all protocols (file://, http://, https://, ftp://, etc.)
-            local_file = fetch_file(src_path, sha_value, package_name)
+            local_file = fetch_file(src_uri, sha_value, package_name)
 
             # Copy the fetched file
             copy_package(local_file, package_name)
             return True
 
         except Exception as e:
-            # Include index and, when available, packagename and srcpath for easier troubleshooting
+            # Preserve BitBake fatal errors (bb.fatal) as build-stoppers.
+            # bb.fatal raises bb.BBHandledException; do not downgrade it to a warning.
+            if hasattr(bb, "BBHandledException") and isinstance(e, bb.BBHandledException):
+                raise
+
+            # Include index and, when available, packagename and srcuri for easier troubleshooting
             pkg_name = app.get("packagename") if isinstance(app, dict) else None
-            src_path = app.get("srcpath") if isinstance(app, dict) else None
+            src_uri = None
+            if isinstance(app, dict):
+                src_uri = app.get("srcuri")
             bb.warn(
                 f"Failed to process package at index {idx}"
                 f"{f', packagename={pkg_name!r}' if pkg_name else ''}"
-                f"{f', srcpath={src_path!r}' if src_path else ''}: {e}"
+                f"{f', srcuri={src_uri!r}' if src_uri else ''}: {e}"
             )
             return False
 
