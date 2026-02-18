@@ -9,7 +9,9 @@ Apps are described by a JSON manifest. Each entry provides a fetch URI, which is
 - Runs as a rootfs postprocess hook (`ROOTFS_POSTPROCESS_COMMAND`).
 - Fetches via `bb.fetch2` (cached in `DL_DIR`) and installs into `${IMAGE_ROOTFS}${FACTORY_APPS_PATH}/<packagename>` with mode `0644`.
 - Validates `packagename` to prevent obvious directory traversal.
-- Skips invalid entries (wrong type, missing or empty fields) with a warning.
+- The class warns and skips an entry when it is malformed (wrong entry type, missing/empty fields).
+- The class fails the build (`bb.fatal`) for security- or correctness-critical errors such as invalid `packagename`, fetch failures, or fetched-file validation failures (because the requested artifact cannot be reliably installed).
+- Configuration/manifest problems are fatal and fail the build. This includes `FACTORY_APPS_PATH` not set when installation is enabled, an unreadable/unparseable manifest, a manifest that is not a JSON list, or an invalid `FACTORY_APPS_PATH`.
 - Duplicate `packagename` entries overwrite earlier installs and missing `sha256sum` warns and proceeds without verification.
 
 ## Configuration
@@ -29,10 +31,10 @@ The manifest must be a JSON array (list) of objects.
 Each entry supports:
 - `packagename` (required)
   - Destination filename within `${FACTORY_APPS_PATH}`.
-  - Must not contain `..` and must not start with `/` or `\`.
+  - Must be a plain filename (no `/` or `\\` allowed anywhere) and must not contain `..`.
 
-- `srcpath` (required)
-  - Fetch URI for the app artifact.
+- `srcuri` (required)
+  - Fetch URI for the app artifact (must resolve to a single file, not a directory).
   - Examples: `https://example.com/app.bolt`, `file:///path/to/app.bolt`.
 
 - `sha256sum` (required)
@@ -45,7 +47,7 @@ Each entry supports:
 [
   {
     "packagename": "app.bolt",
-    "srcpath": "https://example.com/app.bolt",
+    "srcuri": "https://example.com/app.bolt",
     "sha256sum": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
   }
 ]
