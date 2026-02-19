@@ -95,6 +95,26 @@ python factory_apps_installer_run() {
         if dest_real != rootfs_real and not dest_real.startswith(rootfs_real + os.sep):
             bb.fatal(f"Destination escapes IMAGE_ROOTFS: '{dest_path}' -> '{dest_real}' (rootfs='{rootfs_real}')")
 
+    def ensure_logically_under_rootfs(dest_path):
+        """Fatal if dest_path is not logically under IMAGE_ROOTFS.
+
+        This check is safe to use before the destination exists. It does not
+        resolve symlinks; symlink traversal is handled separately via lstat()
+        checks on each path component and post-validation with ensure_under_rootfs().
+        """
+        rootfs_abs = os.path.abspath(rootfs)
+        dest_abs = os.path.abspath(dest_path)
+        try:
+            if os.path.commonpath([rootfs_abs, dest_abs]) != rootfs_abs:
+                bb.fatal(
+                    f"Destination escapes IMAGE_ROOTFS: '{dest_path}' (rootfs='{rootfs_abs}')"
+                )
+        except ValueError:
+            # Different drive letters on Windows can trigger ValueError.
+            bb.fatal(
+                f"Destination escapes IMAGE_ROOTFS: '{dest_path}' (rootfs='{rootfs_abs}')"
+            )
+
     bb.note(f"Reading factory apps manifest: {json_file}")
 
     try:
@@ -209,9 +229,9 @@ python factory_apps_installer_run() {
 
         bb.note(f"Installing package '{package_name}' to: {dest_file}")
 
-        # Ensure we never write outside the rootfs.
-        ensure_under_rootfs(dest_dir)
-        ensure_under_rootfs(dest_file)
+        # Ensure we never write outside the rootfs (works even before paths exist).
+        ensure_logically_under_rootfs(dest_dir)
+        ensure_logically_under_rootfs(dest_file)
 
         # Create destination directory path under IMAGE_ROOTFS, refusing to traverse symlinks.
         cur_dir = rootfs
