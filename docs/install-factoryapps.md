@@ -39,9 +39,9 @@ Each entry supports:
   - Examples: `https://example.com/app.bolt`, `file:///path/to/app.bolt`.
 
 - `sha256sum` (required)
-  - SHA-256 checksum (64 hex chars, lowercase hex) for the artifact.
+  - SHA-256 checksum (64 hex chars, hex-encoded) for the artifact.
   - Must be a JSON string (quoted); non-string types are rejected.
-  - The value must be exactly 64 hexadecimal characters (0-9, a-f). Any missing, empty, or invalid value will cause the build to fail.
+  - The value must be exactly 64 hexadecimal characters (0-9, a-f, A-F). Input is case-insensitive and will be normalized to lowercase internally. Any missing, empty, or invalid value will cause the build to fail.
   - It is appended to the fetch URI as `;sha256sum=<sha256sum>` so BitBake can verify the download.
 
 ### Example

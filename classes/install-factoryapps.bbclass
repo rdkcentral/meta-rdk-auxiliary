@@ -154,22 +154,21 @@ python factory_apps_installer_run() {
         else:
             seen_packagenames[pkg_name] = idx
 
-    def fetch_file(src_uri, sha_value, sha_present, package_name):
+    def fetch_file(src_uri, sha_value, package_name):
         try:
             # Create a fetch data object
             # SRC_URI format: "protocol://path;param=value"
             fetch_uri = src_uri
 
-            # Add checksum to URI if provided (BitBake can verify automatically)
-            # Parse and validate sha256sum
+            # Add mandatory sha256 checksum to the URI so BitBake can verify automatically
+            # Parse and validate the required sha256sum
             sha_value_clean = ""
-            if sha_present:
-                if isinstance(sha_value, str):
-                    sha_value_clean = sha_value.strip().lower()
-                else:
-                    bb.fatal(
-                        f"Invalid sha256sum for '{package_name}': must be a string (64 hex chars), got {type(sha_value).__name__} ({sha_value!r})"
-                    )
+            if isinstance(sha_value, str):
+                sha_value_clean = sha_value.strip().lower()
+            else:
+                bb.fatal(
+                    f"Invalid sha256sum for '{package_name}': must be a string (64 hex chars), got {type(sha_value).__name__} ({sha_value!r})"
+                )
 
             if not sha_value_clean or len(sha_value_clean) != 64 or any(c not in "0123456789abcdef" for c in sha_value_clean):
                 bb.fatal(
@@ -324,8 +323,7 @@ python factory_apps_installer_run() {
             bb.note(f"Processing factory app [{idx}]: packagename='{package_name}', srcuri='{src_uri}'")
 
             # Use BitBake fetcher to handle all protocols (file://, http://, https://, ftp://, etc.)
-            sha_present = "sha256sum" in app
-            local_file = fetch_file(src_uri, sha_value, sha_present, package_name)
+            local_file = fetch_file(src_uri, sha_value, package_name)
 
             # Copy the fetched file
             copy_package(local_file, package_name, overwrite_expected=overwrite_expected)
