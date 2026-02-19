@@ -52,7 +52,7 @@ python create_version_file() {
     with open(version_file, 'w') as fw:
         fw.write('imagename:{0}\n'.format(image_name))
         fw.write('OSS_VERSION={0}\n'.format(oss_layer_version))
-        if os.path.exists(layer_info_path):
+        if layer_info_path and  os.path.exists(layer_info_path):
             layer_versions = extract_layer_versions_from_file(d, layer_info_path)
             for layer_name, version in layer_versions.items():
                 fw.write(f"{layer_name}={version}\n")
