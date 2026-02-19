@@ -162,17 +162,11 @@ python factory_apps_installer_run() {
 
             # Add mandatory sha256 checksum to the URI so BitBake can verify automatically
             # Parse and validate the required sha256sum
-            sha_value_clean = ""
-            if isinstance(sha_value, str):
-                sha_value_clean = sha_value.strip().lower()
-            else:
+            sha_value_clean = sha_value.strip().lower()
+            # Non-empty value must be a valid 64-character lowercase hex string
+            if len(sha_value_clean) != 64 or any(c not in "0123456789abcdef" for c in sha_value_clean):
                 bb.fatal(
-                    f"Invalid sha256sum for '{package_name}': must be a string (64 hex chars), got {type(sha_value).__name__} ({sha_value!r})"
-                )
-
-            if not sha_value_clean or len(sha_value_clean) != 64 or any(c not in "0123456789abcdef" for c in sha_value_clean):
-                bb.fatal(
-                    f"Invalid or missing sha256sum for '{package_name}': must be 64 hex characters (got {sha_value!r})"
+                    f"Invalid sha256sum for '{package_name}': must be 64 hex characters (got {sha_value!r})"
                 )
 
             # BitBake fetcher expects checksums in SRC_URI or via params
@@ -318,7 +312,12 @@ python factory_apps_installer_run() {
                 )
                 return False
 
-            sha_value = app.get("sha256sum", "")
+            # Validate sha256sum presence and type early for clearer errors
+            if "sha256sum" not in app:
+                bb.fatal(f"Factory app entry #{idx} ('{package_name}') missing required field 'sha256sum': {app}")
+            sha_value = app["sha256sum"]
+            if not isinstance(sha_value, str) or not sha_value.strip():
+                bb.fatal(f"Factory app entry #{idx} ('{package_name}') has empty/invalid 'sha256sum': {app}")
 
             bb.note(f"Processing factory app [{idx}]: packagename='{package_name}', srcuri='{src_uri}'")
 

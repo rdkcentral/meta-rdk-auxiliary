@@ -28,7 +28,6 @@ Set the following variables in your image, distro config, or `local.conf`:
 ## JSON Manifest Format
 The manifest must be a JSON array (list) of objects.
 
-
 Each entry supports:
 - `packagename` (required)
   - Destination filename within `${FACTORY_APPS_PATH}`.
