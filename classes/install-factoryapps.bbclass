@@ -41,6 +41,13 @@ python factory_apps_installer_run() {
     import shutil
     import bb.utils
     import bb.fetch2
+    import re
+
+    def redact_uri(uri):
+        """Redact credentials in URIs for all non-file:// schemes."""
+        if isinstance(uri, str) and not uri.lower().startswith("file://"):
+            return re.sub(r'(://)[^/@]+@', r'\1<redacted>@', uri)
+        return uri
 
     json_file = d.getVar("FACTORY_APPS_JSON_FILE")
     rootfs = d.getVar("IMAGE_ROOTFS")
@@ -146,11 +153,6 @@ python factory_apps_installer_run() {
             first_idx = seen_packagenames[pkg_name]
             src_uri_raw = app.get("srcuri", "")
             src_uri_trimmed = src_uri_raw.strip() if isinstance(src_uri_raw, str) else ""
-            def redact_uri(uri):
-                if isinstance(uri, str) and uri.lower().startswith(("http://", "https://", "ftp://")):
-                    import re
-                    return re.sub(r'(://)[^/@]+@', r'\1<redacted>@', uri)
-                return uri
             redacted_srcuri = redact_uri(src_uri_trimmed)
             bb.warn(
                 f"Duplicate packagename {pkg_name!r} in factory apps manifest: "
@@ -317,11 +319,6 @@ python factory_apps_installer_run() {
 
             # Validate sha256sum presence and type early for clearer errors
             if "sha256sum" not in app:
-                def redact_uri(uri):
-                    if isinstance(uri, str) and uri.lower().startswith(("http://", "https://", "ftp://")):
-                        import re
-                        return re.sub(r'(://)[^/@]+@', r'\1<redacted>@', uri)
-                    return uri
                 redacted_srcuri = redact_uri(src_uri)
                 bb.fatal(
                     f"Factory app entry #{idx} ('{package_name}') missing required field 'sha256sum'. "
@@ -329,11 +326,6 @@ python factory_apps_installer_run() {
                 )
             sha_value = app["sha256sum"]
             if not isinstance(sha_value, str):
-                def redact_uri(uri):
-                    if isinstance(uri, str) and uri.lower().startswith(("http://", "https://", "ftp://")):
-                        import re
-                        return re.sub(r'(://)[^/@]+@', r'\1<redacted>@', uri)
-                    return uri
                 redacted_srcuri = redact_uri(src_uri)
                 bb.fatal(
                     f"Factory app entry #{idx} ('{package_name}') has invalid 'sha256sum' type: "
@@ -341,11 +333,6 @@ python factory_apps_installer_run() {
                     f"srcuri={redacted_srcuri}"
                 )
             if not sha_value.strip():
-                def redact_uri(uri):
-                    if isinstance(uri, str) and uri.lower().startswith(("http://", "https://", "ftp://")):
-                        import re
-                        return re.sub(r'(://)[^/@]+@', r'\1<redacted>@', uri)
-                    return uri
                 redacted_srcuri = redact_uri(src_uri)
                 bb.fatal(
                     f"Factory app entry #{idx} ('{package_name}') has empty/whitespace-only 'sha256sum'. "
@@ -373,10 +360,11 @@ python factory_apps_installer_run() {
             src_uri = None
             if isinstance(app, dict):
                 src_uri = app.get("srcuri")
+            redacted_srcuri = redact_uri(src_uri) if src_uri else None
             bb.warn(
                 f"Failed to process package at index {idx}"
                 f"{f', packagename={pkg_name!r}' if pkg_name else ''}"
-                f"{f', srcuri={src_uri!r}' if src_uri else ''}: {e}"
+                f"{f', srcuri={redacted_srcuri!r}' if redacted_srcuri else ''}: {e}"
             )
             return False
 
