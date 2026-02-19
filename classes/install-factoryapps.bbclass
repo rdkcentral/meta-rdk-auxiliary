@@ -156,10 +156,6 @@ python factory_apps_installer_run() {
 
     def fetch_file(src_uri, sha_value, package_name):
         try:
-            # Create a fetch data object
-            # SRC_URI format: "protocol://path;param=value"
-            fetch_uri = src_uri
-
             # Add mandatory sha256 checksum to the URI so BitBake can verify automatically
             # Parse and validate the required sha256sum
             sha_value_clean = sha_value.strip().lower()
@@ -314,16 +310,24 @@ python factory_apps_installer_run() {
 
             # Validate sha256sum presence and type early for clearer errors
             if "sha256sum" not in app:
-                bb.fatal(f"Factory app entry #{idx} ('{package_name}') missing required field 'sha256sum': {app}")
+                srcuri_for_log = app.get('srcuri', '<none>')
+                bb.fatal(
+                    f"Factory app entry #{idx} ('{package_name}') missing required field 'sha256sum'. "
+                    f"srcuri={srcuri_for_log if '://' not in str(srcuri_for_log) else '<redacted>'}"
+                )
             sha_value = app["sha256sum"]
             if not isinstance(sha_value, str):
+                srcuri_for_log = app.get('srcuri', '<none>')
                 bb.fatal(
                     f"Factory app entry #{idx} ('{package_name}') has invalid 'sha256sum' type: "
-                    f"expected string (must be quoted in JSON), got {type(sha_value).__name__}: {app}"
+                    f"expected string (must be quoted in JSON), got {type(sha_value).__name__}. "
+                    f"srcuri={srcuri_for_log if '://' not in str(srcuri_for_log) else '<redacted>'}"
                 )
             if not sha_value.strip():
+                srcuri_for_log = app.get('srcuri', '<none>')
                 bb.fatal(
-                    f"Factory app entry #{idx} ('{package_name}') has empty/whitespace-only 'sha256sum': {app}"
+                    f"Factory app entry #{idx} ('{package_name}') has empty/whitespace-only 'sha256sum'. "
+                    f"srcuri={srcuri_for_log if '://' not in str(srcuri_for_log) else '<redacted>'}"
                 )
 
             bb.note(f"Processing factory app [{idx}]: packagename='{package_name}', srcuri='{src_uri}'")
