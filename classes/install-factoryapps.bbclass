@@ -154,40 +154,19 @@ python factory_apps_installer_run() {
         else:
             seen_packagenames[pkg_name] = idx
 
-    def fetch_file(src_uri, sha_value, sha_present, package_name):
+    def fetch_file(src_uri, sha_value, package_name):
         try:
-            # Create a fetch data object
-            # SRC_URI format: "protocol://path;param=value"
-            fetch_uri = src_uri
+            # Add mandatory sha256 checksum to the URI so BitBake can verify automatically
+            # Parse and validate the required sha256sum
+            sha_value_clean = sha_value.strip().lower()
+            # Non-empty value must be a valid 64-character lowercase hex string
+            if len(sha_value_clean) != 64 or any(c not in "0123456789abcdef" for c in sha_value_clean):
+                bb.fatal(
+                    f"Invalid sha256sum for '{package_name}': must be 64 hex characters (got {sha_value!r})"
+                )
 
-            # Add checksum to URI if provided (BitBake can verify automatically)
-            sha_value_clean = ""
-            if sha_present:
-                if sha_value is None:
-                    sha_value_clean = ""
-                elif isinstance(sha_value, (bool, int, float)):
-                    bb.fatal(
-                        f"Invalid sha256sum for '{package_name}': must be a string (64 hex chars), got {type(sha_value).__name__} ({sha_value!r}). "
-                        "If present in JSON, sha256sum must be quoted."
-                    )
-                elif not isinstance(sha_value, str):
-                    bb.fatal(
-                        f"Invalid sha256sum for '{package_name}': must be a string (64 hex chars), got {type(sha_value).__name__}"
-                    )
-                else:
-                    sha_value_clean = sha_value.strip().lower()
-
-            if sha_value_clean:
-                # Validate 64 hex chars for clearer errors than fetcher failures.
-                if len(sha_value_clean) != 64 or any(c not in "0123456789abcdef" for c in sha_value_clean):
-                    bb.fatal(
-                        f"Invalid sha256sum for '{package_name}': must be 64 hex characters (got {sha_value!r})"
-                    )
-
-                # BitBake fetcher expects checksums in SRC_URI or via params
-                fetch_uri = f"{src_uri};sha256sum={sha_value_clean}"
-            else:
-                bb.warn(f"No sha256sum provided for '{package_name}' - skipping verification")
+            # BitBake fetcher expects checksums in SRC_URI or via params
+            fetch_uri = f"{src_uri};sha256sum={sha_value_clean}"
 
             bb.note(f"Fetching: {fetch_uri}")
 
@@ -329,13 +308,32 @@ python factory_apps_installer_run() {
                 )
                 return False
 
-            sha_value = app.get("sha256sum", "")
+            # Validate sha256sum presence and type early for clearer errors
+            if "sha256sum" not in app:
+                srcuri_for_log = app.get('srcuri', '<none>')
+                bb.fatal(
+                    f"Factory app entry #{idx} ('{package_name}') missing required field 'sha256sum'. "
+                    f"srcuri={srcuri_for_log if '://' not in str(srcuri_for_log) else '<redacted>'}"
+                )
+            sha_value = app["sha256sum"]
+            if not isinstance(sha_value, str):
+                srcuri_for_log = app.get('srcuri', '<none>')
+                bb.fatal(
+                    f"Factory app entry #{idx} ('{package_name}') has invalid 'sha256sum' type: "
+                    f"expected string (must be quoted in JSON), got {type(sha_value).__name__}. "
+                    f"srcuri={srcuri_for_log if '://' not in str(srcuri_for_log) else '<redacted>'}"
+                )
+            if not sha_value.strip():
+                srcuri_for_log = app.get('srcuri', '<none>')
+                bb.fatal(
+                    f"Factory app entry #{idx} ('{package_name}') has empty/whitespace-only 'sha256sum'. "
+                    f"srcuri={srcuri_for_log if '://' not in str(srcuri_for_log) else '<redacted>'}"
+                )
 
             bb.note(f"Processing factory app [{idx}]: packagename='{package_name}', srcuri='{src_uri}'")
 
             # Use BitBake fetcher to handle all protocols (file://, http://, https://, ftp://, etc.)
-            sha_present = "sha256sum" in app
-            local_file = fetch_file(src_uri, sha_value, sha_present, package_name)
+            local_file = fetch_file(src_uri, sha_value, package_name)
 
             # Copy the fetched file
             copy_package(local_file, package_name, overwrite_expected=overwrite_expected)
