@@ -161,33 +161,23 @@ python factory_apps_installer_run() {
             fetch_uri = src_uri
 
             # Add checksum to URI if provided (BitBake can verify automatically)
+            # Parse and validate sha256sum
             sha_value_clean = ""
             if sha_present:
-                if sha_value is None:
-                    sha_value_clean = ""
-                elif isinstance(sha_value, (bool, int, float)):
-                    bb.fatal(
-                        f"Invalid sha256sum for '{package_name}': must be a string (64 hex chars), got {type(sha_value).__name__} ({sha_value!r}). "
-                        "If present in JSON, sha256sum must be quoted."
-                    )
-                elif not isinstance(sha_value, str):
-                    bb.fatal(
-                        f"Invalid sha256sum for '{package_name}': must be a string (64 hex chars), got {type(sha_value).__name__}"
-                    )
-                else:
+                if isinstance(sha_value, str):
                     sha_value_clean = sha_value.strip().lower()
-
-            if sha_value_clean:
-                # Validate 64 hex chars for clearer errors than fetcher failures.
-                if len(sha_value_clean) != 64 or any(c not in "0123456789abcdef" for c in sha_value_clean):
+                else:
                     bb.fatal(
-                        f"Invalid sha256sum for '{package_name}': must be 64 hex characters (got {sha_value!r})"
+                        f"Invalid sha256sum for '{package_name}': must be a string (64 hex chars), got {type(sha_value).__name__} ({sha_value!r})"
                     )
 
-                # BitBake fetcher expects checksums in SRC_URI or via params
-                fetch_uri = f"{src_uri};sha256sum={sha_value_clean}"
-            else:
-                bb.warn(f"No sha256sum provided for '{package_name}' - skipping verification")
+            if not sha_value_clean or len(sha_value_clean) != 64 or any(c not in "0123456789abcdef" for c in sha_value_clean):
+                bb.fatal(
+                    f"Invalid or missing sha256sum for '{package_name}': must be 64 hex characters (got {sha_value!r})"
+                )
+
+            # BitBake fetcher expects checksums in SRC_URI or via params
+            fetch_uri = f"{src_uri};sha256sum={sha_value_clean}"
 
             bb.note(f"Fetching: {fetch_uri}")
 
