@@ -316,8 +316,15 @@ python factory_apps_installer_run() {
             if "sha256sum" not in app:
                 bb.fatal(f"Factory app entry #{idx} ('{package_name}') missing required field 'sha256sum': {app}")
             sha_value = app["sha256sum"]
-            if not isinstance(sha_value, str) or not sha_value.strip():
-                bb.fatal(f"Factory app entry #{idx} ('{package_name}') has empty/invalid 'sha256sum': {app}")
+            if not isinstance(sha_value, str):
+                bb.fatal(
+                    f"Factory app entry #{idx} ('{package_name}') has invalid 'sha256sum' type: "
+                    f"expected string (must be quoted in JSON), got {type(sha_value).__name__}: {app}"
+                )
+            if not sha_value.strip():
+                bb.fatal(
+                    f"Factory app entry #{idx} ('{package_name}') has empty/whitespace-only 'sha256sum': {app}"
+                )
 
             bb.note(f"Processing factory app [{idx}]: packagename='{package_name}', srcuri='{src_uri}'")
 
