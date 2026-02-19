@@ -9,10 +9,10 @@ Apps are described by a JSON manifest. Each entry provides a fetch URI, which is
 - Runs as a rootfs postprocess hook (`ROOTFS_POSTPROCESS_COMMAND`).
 - Fetches via `bb.fetch2` (cached in `DL_DIR`) and installs into `${IMAGE_ROOTFS}${FACTORY_APPS_PATH}/<packagename>` with mode `0644`.
 - Validates `packagename` to prevent obvious directory traversal.
-- The class warns and skips an entry when it is malformed (wrong entry type, missing/empty fields).
-- The class fails the build (`bb.fatal`) for security- or correctness-critical errors such as invalid `packagename`, fetch failures, or fetched-file validation failures (because the requested artifact cannot be reliably installed).
+- The class warns and skips an entry when it is malformed (wrong entry type, missing/empty fields), except for `sha256sum` which is always required and strictly validated.
+- The class fails the build (`bb.fatal`) for security- or correctness-critical errors such as invalid `packagename`, fetch failures, missing or invalid `sha256sum`, or fetched-file validation failures (because the requested artifact cannot be reliably installed).
 - Configuration/manifest problems are fatal and fail the build. This includes `FACTORY_APPS_PATH` not set when installation is enabled, an unreadable/unparseable manifest, a manifest that is not a JSON list, or an invalid `FACTORY_APPS_PATH`.
-- Duplicate `packagename` entries overwrite earlier installs (a warning is logged) and missing `sha256sum` warns and proceeds without verification.
+- Duplicate `packagename` entries overwrite earlier installs (a warning is logged).
 
 ## Configuration
 Set the following variables in your image, distro config, or `local.conf`:
@@ -28,6 +28,7 @@ Set the following variables in your image, distro config, or `local.conf`:
 ## JSON Manifest Format
 The manifest must be a JSON array (list) of objects.
 
+
 Each entry supports:
 - `packagename` (required)
   - Destination filename within `${FACTORY_APPS_PATH}`.
@@ -38,8 +39,9 @@ Each entry supports:
   - Examples: `https://example.com/app.bolt`, `file:///path/to/app.bolt`.
 
 - `sha256sum` (required)
-  - SHA-256 checksum (64 hex chars) for the artifact.
-  - Must be a JSON string when present (i.e., quoted); non-string types are rejected.
+  - SHA-256 checksum (64 hex chars, lowercase hex) for the artifact.
+  - Must be a JSON string (quoted); non-string types are rejected.
+  - The value must be exactly 64 hexadecimal characters (0-9, a-f). Any missing, empty, or invalid value will cause the build to fail.
   - It is appended to the fetch URI as `;sha256sum=<sha256sum>` so BitBake can verify the download.
 
 ### Example
