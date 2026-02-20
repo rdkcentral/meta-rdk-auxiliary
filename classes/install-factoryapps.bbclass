@@ -124,7 +124,7 @@ python factory_apps_installer_run() {
                 f"Destination escapes IMAGE_ROOTFS: '{dest_path}' (rootfs='{rootfs_abs}')"
             )
 
-    bb.note(f"Reading factory apps manifest: {json_file}")
+    bb.note(f"Processing factory apps manifest: {json_file}")
 
     try:
         with open(json_file, "r", encoding="utf-8") as f:
@@ -164,47 +164,35 @@ python factory_apps_installer_run() {
             seen_packagenames[pkg_name] = idx
 
     def fetch_file(src_uri, sha_value, package_name):
-        try:
-            # Add mandatory sha256 checksum to the URI so BitBake can verify automatically
-            # Parse and validate the required sha256sum
-            sha_value_clean = sha_value.strip().lower()
-            # Non-empty value must be a valid 64-character lowercase hex string
-            if len(sha_value_clean) != 64 or any(c not in "0123456789abcdef" for c in sha_value_clean):
-                bb.fatal(
-                    f"Invalid sha256sum for '{package_name}': must be 64 hex characters (got {sha_value!r})"
-                )
+        # Add mandatory sha256 checksum to the URI so BitBake can verify automatically
+        # Parse and validate the required sha256sum
+        sha_value_clean = sha_value.strip().lower()
+        # Non-empty value must be a valid 64-character lowercase hex string
+        if len(sha_value_clean) != 64 or any(c not in "0123456789abcdef" for c in sha_value_clean):
+            bb.fatal(
+                f"Invalid sha256sum for '{package_name}': must be 64 hex characters (got {sha_value!r})"
+            )
 
-            # BitBake fetcher expects checksums in SRC_URI or via params
-            fetch_uri = f"{src_uri};sha256sum={sha_value_clean}"
+        # BitBake fetcher expects checksums in SRC_URI or via params
+        fetch_uri = f"{src_uri};sha256sum={sha_value_clean}"
+        # Create fetcher instance and a FetchData object
+        fetcher = bb.fetch2.Fetch([fetch_uri], d)
 
-            bb.note(f"Fetching: {fetch_uri}")
+        # Download the file (uses DL_DIR for caching)
+        fetcher.download()
 
-            # Create fetcher instance
-            # We need to create a FetchData object
-            fetcher = bb.fetch2.Fetch([fetch_uri], d)
+        # Get the local file path
+        local_path = fetcher.localpath(fetch_uri)
 
-            # Download the file (uses DL_DIR for caching)
-            fetcher.download()
+        # Verify the file exists
+        if not os.path.exists(local_path):
+            bb.fatal(f"Fetched file not found: {local_path}")
 
-            # Get the local file path
-            local_path = fetcher.localpath(fetch_uri)
+        # Ensure the fetched path is a regular file, not a directory or other type
+        if not os.path.isfile(local_path):
+            bb.fatal(f"Fetched path is not a regular file: {local_path}")
 
-            # Verify the file exists
-            if not os.path.exists(local_path):
-                bb.fatal(f"Fetched file not found: {local_path}")
-
-            # Ensure the fetched path is a regular file, not a directory or other type
-            if not os.path.isfile(local_path):
-                bb.fatal(f"Fetched path is not a regular file: {local_path}")
-
-            bb.note(f"Successfully fetched to: {local_path}")
-
-            return local_path
-
-        except bb.fetch2.FetchError as e:
-            bb.fatal(f"Failed to fetch {src_uri}: {e}")
-        except Exception as e:
-            bb.fatal(f"Unexpected error fetching {src_uri}: {e}")
+        return local_path
 
     def copy_package(src_file, package_name, overwrite_expected):
         """Copy package to final destination."""
@@ -265,7 +253,7 @@ python factory_apps_installer_run() {
         # Post-validate final destination (defense in depth).
         ensure_under_rootfs(dest_file)
 
-        bb.note(f"Successfully installed '{package_name}' -> {dest_file}")
+        bb.note(f"Successfully installed '{package_name}' at {dest_file}")
 
     def process_app(app, idx, installed_packagenames_in_run):
         """Process a single factory app entry."""
@@ -277,7 +265,8 @@ python factory_apps_installer_run() {
             # Extract fields
             package_name_raw = app.get("packagename")
             if package_name_raw is None:
-                bb.warn(f"Factory app entry #{idx} missing 'packagename': {app}")
+                redacted_srcuri = redact_uri(app.get('srcuri', ''))
+                bb.warn(f"Factory app entry #{idx} missing 'packagename': srcuri={redacted_srcuri}")
                 return False
             if not isinstance(package_name_raw, str):
                 bb.warn(
@@ -287,7 +276,8 @@ python factory_apps_installer_run() {
                 return False
             package_name = package_name_raw.strip()
             if not package_name:
-                bb.warn(f"Factory app entry #{idx} has empty/whitespace-only 'packagename': {app}")
+                redacted_srcuri = redact_uri(app.get('srcuri', ''))
+                bb.warn(f"Factory app entry #{idx} has empty/whitespace-only 'packagename': srcuri={redacted_srcuri}")
                 return False
 
             overwrite_expected = package_name in installed_packagenames_in_run
@@ -302,18 +292,18 @@ python factory_apps_installer_run() {
 
             src_uri_raw = app.get("srcuri")
             if src_uri_raw is None:
-                bb.warn(f"Factory app entry #{idx} ('{package_name}') missing required field 'srcuri': {app}")
+                bb.warn(f"Factory app entry #{idx} ('{package_name}') missing required field 'srcuri': (packagename={package_name})")
                 return False
             if not isinstance(src_uri_raw, str):
                 bb.warn(
                     f"Factory app entry #{idx} ('{package_name}') has invalid 'srcuri' type: "
-                    f"expected string, got {type(src_uri_raw).__name__}"
+                    f"expected string, got {type(src_uri_raw).__name__} (packagename={package_name})"
                 )
                 return False
             src_uri = src_uri_raw.strip()
             if not src_uri:
                 bb.warn(
-                    f"Factory app entry #{idx} ('{package_name}') has empty/whitespace-only 'srcuri': {app}"
+                    f"Factory app entry #{idx} ('{package_name}') has empty/whitespace-only 'srcuri': (packagename={package_name})"
                 )
                 return False
 
