@@ -20,9 +20,9 @@
 # RALF Support BitBake Class
 #
 # Provisions RALF (RDK Application Layer Format) runtime prerequisites:
-# creates dedicated ralf user and group for the container in non-root mode
-# with proper permissions for starting RALF applications.
-# Usage: Inherit this class in your recipe or image file to enable RALF support.
+# creates a dedicated ralf user and group for the container in non-root mode
+# to be used when starting RALF applications; actual permissions must be
+# configured by the consuming recipes or images as needed.
 
 SUMMARY = "Add RALF support: add required runtime user and group to the created image"
 
