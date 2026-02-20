@@ -48,7 +48,9 @@ python factory_apps_installer_run() {
         if not isinstance(uri, str):
             return "" if uri is None else str(uri)
         if not uri.lower().startswith("file://"):
-            return re.sub(r'(://)[^@]+@', r'\1<redacted>@', uri)
+            # Only redact userinfo (username:password@) before host, not @ in path/query/fragment
+            # Use regex that stops at first /, ?, or # after scheme
+            return re.sub(r'(://)[^/@?#]+@', r'\1<redacted>@', uri)
         return uri
 
     json_file = d.getVar("FACTORY_APPS_JSON_FILE")
@@ -266,18 +268,18 @@ python factory_apps_installer_run() {
             package_name_raw = app.get("packagename")
             if package_name_raw is None:
                 redacted_srcuri = redact_uri(app.get('srcuri', ''))
-                bb.warn(f"Factory app entry #{idx} missing 'packagename': srcuri={redacted_srcuri}")
+                bb.warn(f"Factory app entry #{idx} missing required field 'packagename' (srcuri={redacted_srcuri})")
                 return False
             if not isinstance(package_name_raw, str):
+                redacted_srcuri = redact_uri(app.get('srcuri', ''))
                 bb.warn(
-                    f"Factory app entry #{idx} has invalid 'packagename' type: "
-                    f"expected string, got {type(package_name_raw).__name__}"
+                    f"Factory app entry #{idx} invalid 'packagename' type: expected string, got {type(package_name_raw).__name__} (srcuri={redacted_srcuri})"
                 )
                 return False
             package_name = package_name_raw.strip()
             if not package_name:
                 redacted_srcuri = redact_uri(app.get('srcuri', ''))
-                bb.warn(f"Factory app entry #{idx} has empty/whitespace-only 'packagename': srcuri={redacted_srcuri}")
+                bb.warn(f"Factory app entry #{idx} empty/whitespace-only 'packagename' (srcuri={redacted_srcuri})")
                 return False
 
             overwrite_expected = package_name in installed_packagenames_in_run
@@ -292,18 +294,17 @@ python factory_apps_installer_run() {
 
             src_uri_raw = app.get("srcuri")
             if src_uri_raw is None:
-                bb.warn(f"Factory app entry #{idx} ('{package_name}') missing required field 'srcuri': (packagename={package_name})")
+                bb.warn(f"Factory app entry #{idx} ('{package_name}') missing required field 'srcuri'")
                 return False
             if not isinstance(src_uri_raw, str):
                 bb.warn(
-                    f"Factory app entry #{idx} ('{package_name}') has invalid 'srcuri' type: "
-                    f"expected string, got {type(src_uri_raw).__name__} (packagename={package_name})"
+                    f"Factory app entry #{idx} ('{package_name}') invalid 'srcuri' type: expected string, got {type(src_uri_raw).__name__}"
                 )
                 return False
             src_uri = src_uri_raw.strip()
             if not src_uri:
                 bb.warn(
-                    f"Factory app entry #{idx} ('{package_name}') has empty/whitespace-only 'srcuri': (packagename={package_name})"
+                    f"Factory app entry #{idx} ('{package_name}') empty/whitespace-only 'srcuri'"
                 )
                 return False
 
@@ -346,6 +347,10 @@ python factory_apps_installer_run() {
             if hasattr(bb, "BBHandledException") and isinstance(e, bb.BBHandledException):
                 raise
 
+            # Raise fetch errors as fatal, not warnings
+            if isinstance(e, bb.fetch2.FetchError):
+                raise
+
             # Include index and, when available, packagename and srcuri for easier troubleshooting
             pkg_name = app.get("packagename") if isinstance(app, dict) else None
             src_uri = app.get("srcuri") if isinstance(app, dict) else None
@@ -353,7 +358,7 @@ python factory_apps_installer_run() {
             bb.warn(
                 f"Failed to process package at index {idx}"
                 f"{f', packagename={pkg_name!r}' if pkg_name else ''}"
-                f"{f', srcuri={redacted_srcuri!r}' if redacted_srcuri else ''}: {e}"
+                f"{f', srcuri={redacted_srcuri!r}' if redacted_srcuri else ''}: {type(e).__name__}"
             )
             return False
 
