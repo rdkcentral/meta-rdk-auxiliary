@@ -358,7 +358,7 @@ python factory_apps_installer_run() {
             bb.warn(
                 f"Failed to process package at index {idx}"
                 f"{f', packagename={pkg_name!r}' if pkg_name else ''}"
-                f"{f', srcuri={redacted_srcuri!r}' if redacted_srcuri else ''}: {type(e).__name__}"
+                f"{f', srcuri={redacted_srcuri!r}' if redacted_srcuri else ''}: {e}"
             )
             return False
 
