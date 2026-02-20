@@ -23,5 +23,5 @@ IMAGE_CLASSES += "post-rootfs-hooks"
 # Enable RALF support
 IMAGE_CLASSES += "${@bb.utils.contains('DISTRO_FEATURES', 'enable_ralf', 'ralf-support', '', d)}"
 
-# Bundle and Install factory-apps
+# Install factory-apps
 IMAGE_CLASSES += "${@bb.utils.contains('DISTRO_FEATURES', 'enable_ralf', 'install-factoryapps', '', d)}"
