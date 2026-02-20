@@ -44,9 +44,14 @@ python factory_apps_installer_run() {
     import re
 
     def redact_uri(uri):
-        """Redact credentials in URIs for all non-file:// schemes."""
-        if isinstance(uri, str) and not uri.lower().startswith("file://"):
-            return re.sub(r'(://)[^/@]+@', r'\1<redacted>@', uri)
+        """Redact credentials in URIs for all non-file:// schemes. Always returns a string."""
+        # Always return a string to avoid issues in formatting/logging contexts.
+        if not isinstance(uri, str):
+            # Treat None as an empty string; other types use their string representation.
+            return "" if uri is None else str(uri)
+        if not uri.lower().startswith("file://"):
+            # Improved regex: match everything between '://' and '@', including '/' and '@' in credentials
+            return re.sub(r'(://)[^/]+@', r'\1<redacted>@', uri)
         return uri
 
     json_file = d.getVar("FACTORY_APPS_JSON_FILE")
@@ -151,8 +156,13 @@ python factory_apps_installer_run() {
 
         if pkg_name in seen_packagenames:
             first_idx = seen_packagenames[pkg_name]
-            src_uri_raw = app.get("srcuri", "")
-            src_uri_trimmed = src_uri_raw.strip() if isinstance(src_uri_raw, str) else ""
+            src_uri_value = app.get("srcuri")
+            if src_uri_value is None:
+                src_uri_trimmed = ""
+            elif isinstance(src_uri_value, str):
+                src_uri_trimmed = src_uri_value.strip()
+            else:
+                src_uri_trimmed = ""
             redacted_srcuri = redact_uri(src_uri_trimmed)
             bb.warn(
                 f"Duplicate packagename {pkg_name!r} in factory apps manifest: "
@@ -339,7 +349,8 @@ python factory_apps_installer_run() {
                     f"srcuri={redacted_srcuri}"
                 )
 
-            bb.note(f"Processing factory app [{idx}]: packagename='{package_name}', srcuri='{src_uri}'")
+            redacted_srcuri = redact_uri(src_uri)
+            bb.note(f"Processing factory app [{idx}]: packagename='{package_name}', srcuri='{redacted_srcuri}'")
 
             # Use BitBake fetcher to handle all protocols (file://, http://, https://, ftp://, etc.)
             local_file = fetch_file(src_uri, sha_value, package_name)
