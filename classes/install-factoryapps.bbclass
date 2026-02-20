@@ -43,15 +43,6 @@ python factory_apps_installer_run() {
     import bb.fetch2
     import re
 
-    def redact_uri(uri):
-        """Redact credentials in URIs for all non-file:// schemes. Always returns a string."""
-        if not isinstance(uri, str):
-            return "" if uri is None else str(uri)
-        if not uri.lower().startswith("file://"):
-            # Only redact userinfo (username:password@) before host, not @ in path/query/fragment
-            # Use regex that stops at first /, ?, or # after scheme
-            return re.sub(r'(://)[^/@?#]+@', r'\1<redacted>@', uri)
-        return uri
 
     json_file = d.getVar("FACTORY_APPS_JSON_FILE")
     rootfs = d.getVar("IMAGE_ROOTFS")
@@ -155,11 +146,11 @@ python factory_apps_installer_run() {
 
         if pkg_name in seen_packagenames:
             first_idx = seen_packagenames[pkg_name]
-            redacted_srcuri = redact_uri(app.get("srcuri", ""))
+            srcuri = app.get("srcuri", "")
             bb.warn(
                 f"Duplicate packagename {pkg_name!r} in factory apps manifest: "
                 f"first at index {first_idx}, again at index {idx}"
-                f"{f', srcuri={redacted_srcuri!r}' if redacted_srcuri else ''}. "
+                f"{f', srcuri={srcuri!r}' if srcuri else ''}. "
                 "This is allowed; later entries will overwrite earlier installs."
             )
         else:
@@ -267,19 +258,19 @@ python factory_apps_installer_run() {
             # Extract fields
             package_name_raw = app.get("packagename")
             if package_name_raw is None:
-                redacted_srcuri = redact_uri(app.get('srcuri', ''))
-                bb.warn(f"Factory app entry #{idx} missing required field 'packagename' (srcuri={redacted_srcuri})")
+                srcuri = app.get('srcuri', '')
+                bb.warn(f"Factory app entry #{idx} missing required field 'packagename' (srcuri={srcuri!r})")
                 return False
             if not isinstance(package_name_raw, str):
-                redacted_srcuri = redact_uri(app.get('srcuri', ''))
+                srcuri = app.get('srcuri', '')
                 bb.warn(
-                    f"Factory app entry #{idx} invalid 'packagename' type: expected string, got {type(package_name_raw).__name__} (srcuri={redacted_srcuri})"
+                    f"Factory app entry #{idx} invalid 'packagename' type: expected string, got {type(package_name_raw).__name__} (srcuri={srcuri!r})"
                 )
                 return False
             package_name = package_name_raw.strip()
             if not package_name:
-                redacted_srcuri = redact_uri(app.get('srcuri', ''))
-                bb.warn(f"Factory app entry #{idx} empty/whitespace-only 'packagename' (srcuri={redacted_srcuri})")
+                srcuri = app.get('srcuri', '')
+                bb.warn(f"Factory app entry #{idx} empty/whitespace-only 'packagename' (srcuri={srcuri!r})")
                 return False
 
             overwrite_expected = package_name in installed_packagenames_in_run
@@ -310,28 +301,24 @@ python factory_apps_installer_run() {
 
             # Validate sha256sum presence and type early for clearer errors
             if "sha256sum" not in app:
-                redacted_srcuri = redact_uri(src_uri)
                 bb.fatal(
                     f"Factory app entry #{idx} ('{package_name}') missing required field 'sha256sum'. "
-                    f"srcuri={redacted_srcuri}"
+                    f"srcuri={src_uri}"
                 )
             sha_value = app["sha256sum"]
             if not isinstance(sha_value, str):
-                redacted_srcuri = redact_uri(src_uri)
                 bb.fatal(
                     f"Factory app entry #{idx} ('{package_name}') has invalid 'sha256sum' type: "
                     f"expected string (must be quoted in JSON), got {type(sha_value).__name__}. "
-                    f"srcuri={redacted_srcuri}"
+                    f"srcuri={src_uri}"
                 )
             if not sha_value.strip():
-                redacted_srcuri = redact_uri(src_uri)
                 bb.fatal(
                     f"Factory app entry #{idx} ('{package_name}') has empty/whitespace-only 'sha256sum'. "
-                    f"srcuri={redacted_srcuri}"
+                    f"srcuri={src_uri}"
                 )
 
-            redacted_srcuri = redact_uri(src_uri)
-            bb.note(f"Processing factory app [{idx}]: packagename='{package_name}', srcuri='{redacted_srcuri}'")
+            bb.note(f"Processing factory app [{idx}]: packagename='{package_name}', srcuri='{src_uri}'")
 
             # Use BitBake fetcher to handle all protocols (file://, http://, https://, ftp://, etc.)
             local_file = fetch_file(src_uri, sha_value, package_name)
@@ -354,11 +341,10 @@ python factory_apps_installer_run() {
             # Include index and, when available, packagename and srcuri for easier troubleshooting
             pkg_name = app.get("packagename") if isinstance(app, dict) else None
             src_uri = app.get("srcuri") if isinstance(app, dict) else None
-            redacted_srcuri = redact_uri(src_uri)
             bb.warn(
                 f"Failed to process package at index {idx}"
                 f"{f', packagename={pkg_name!r}' if pkg_name else ''}"
-                f"{f', srcuri={redacted_srcuri!r}' if redacted_srcuri else ''}: {e}"
+                f"{f', srcuri={src_uri!r}' if src_uri else ''}: {e}"
             )
             return False
 
