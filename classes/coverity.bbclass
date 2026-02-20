@@ -93,7 +93,7 @@ do_compile[prefuncs] += "do_generate_coverity_build"
 COVERITY_BLACKLIST_PATH += "openembedded-core | meta-openembedded | meta-rdk-ext"
 
 # Ignore OSS 
-COVERITY_BLACKLIST_PATH += "meta-oss-reference-release | meta-rdk-oss-reference | meta-rdk-oss-ext | meta-rdk-auxiliary | poky | meta-python2 | meta-lts-mixins | meta-oss-common-config | meta-clang meta-stack-layering-support"
+COVERITY_BLACKLIST_PATH += "meta-oss-reference-release | meta-rdk-oss-reference | meta-rdk-oss-ext | meta-rdk-auxiliary | poky | meta-python2 | meta-lts-mixins | meta-oss-common-config | meta-clang | meta-stack-layering-support"
 
 # Ignore linux kernel Build
 COVERITY_BLACKLIST_PATH += "linux-avalanche | linux-yocto-custom | stblinux | rglinux | display-linux-kernel | tsout-linux-kernel"
