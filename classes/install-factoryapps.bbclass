@@ -45,13 +45,10 @@ python factory_apps_installer_run() {
 
     def redact_uri(uri):
         """Redact credentials in URIs for all non-file:// schemes. Always returns a string."""
-        # Always return a string to avoid issues in formatting/logging contexts.
         if not isinstance(uri, str):
-            # Treat None as an empty string; other types use their string representation.
             return "" if uri is None else str(uri)
         if not uri.lower().startswith("file://"):
-            # Improved regex: match everything between '://' and '@', including '/' and '@' in credentials
-            return re.sub(r'(://)[^/]+@', r'\1<redacted>@', uri)
+            return re.sub(r'(://)[^@]+@', r'\1<redacted>@', uri)
         return uri
 
     json_file = d.getVar("FACTORY_APPS_JSON_FILE")
@@ -156,14 +153,7 @@ python factory_apps_installer_run() {
 
         if pkg_name in seen_packagenames:
             first_idx = seen_packagenames[pkg_name]
-            src_uri_value = app.get("srcuri")
-            if src_uri_value is None:
-                src_uri_trimmed = ""
-            elif isinstance(src_uri_value, str):
-                src_uri_trimmed = src_uri_value.strip()
-            else:
-                src_uri_trimmed = ""
-            redacted_srcuri = redact_uri(src_uri_trimmed)
+            redacted_srcuri = redact_uri(app.get("srcuri", ""))
             bb.warn(
                 f"Duplicate packagename {pkg_name!r} in factory apps manifest: "
                 f"first at index {first_idx}, again at index {idx}"
@@ -368,10 +358,8 @@ python factory_apps_installer_run() {
 
             # Include index and, when available, packagename and srcuri for easier troubleshooting
             pkg_name = app.get("packagename") if isinstance(app, dict) else None
-            src_uri = None
-            if isinstance(app, dict):
-                src_uri = app.get("srcuri")
-            redacted_srcuri = redact_uri(src_uri) if src_uri else None
+            src_uri = app.get("srcuri") if isinstance(app, dict) else None
+            redacted_srcuri = redact_uri(src_uri)
             bb.warn(
                 f"Failed to process package at index {idx}"
                 f"{f', packagename={pkg_name!r}' if pkg_name else ''}"
