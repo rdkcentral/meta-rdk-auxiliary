@@ -39,9 +39,7 @@ python factory_apps_installer_run() {
     import stat
     import posixpath
     import shutil
-    import bb.utils
     import bb.fetch2
-    import re
 
 
     json_file = d.getVar("FACTORY_APPS_JSON_FILE")
