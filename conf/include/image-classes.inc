@@ -19,3 +19,9 @@ IMAGE_CLASSES += "package_categories"
 
 # Post-rootfs hooks based on BUILD_VARIANT
 IMAGE_CLASSES += "post-rootfs-hooks"
+
+# Enable RALF support
+IMAGE_CLASSES += "${@bb.utils.contains('DISTRO_FEATURES', 'enable_ralf', 'ralf-support', '', d)}"
+
+# Install factory-apps
+IMAGE_CLASSES += "${@bb.utils.contains('DISTRO_FEATURES', 'enable_ralf', 'install-factoryapps', '', d)}"
