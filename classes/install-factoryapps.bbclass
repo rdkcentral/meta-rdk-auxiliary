@@ -28,7 +28,7 @@
 #                           "installpath" field.
 #
 # JSON manifest:
-#   Each app entry may optionally specify "install_path" to override the default
+#   Each app entry may optionally specify "installpath" to override the default
 #   FACTORY_APPS_PATH for that specific app.
 #
 # Detailed documentation:
@@ -64,7 +64,7 @@ python factory_apps_installer_run() {
         bb.warn("FACTORY_APPS_PATH not set; each app must specify its own 'installpath' in the JSON manifest")
 
     def normalize_and_validate_install_path(path_value):
-        """Validate FACTORY_APPS_PATH and return a normalized POSIX path.
+        """Validate path and return a normalized POSIX path.
 
         The path is expected to be an absolute POSIX path within the target rootfs.
         """
