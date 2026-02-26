@@ -25,7 +25,7 @@
 #   FACTORY_APPS_JSON_FILE - Path to JSON manifest
 #   FACTORY_APPS_PATH      - Default installation directory for all apps (optional)
 #                           If unset, each app in the manifest must define its own
-#                           "install_path" field.
+#                           "installpath" field.
 #
 # JSON manifest:
 #   Each app entry may optionally specify "install_path" to override the default
@@ -60,7 +60,7 @@ python factory_apps_installer_run() {
         bb.warn(f"Factory apps JSON manifest not found: {json_file} (skipping)")
         return
 
-    if not default_install_path:
+     if not isinstance(default_install_path, str) or not default_install_path.strip():
         bb.warn("FACTORY_APPS_PATH not set; each app must specify its own 'install_path' in the JSON manifest")
 
     def normalize_and_validate_install_path(path_value):
@@ -320,7 +320,7 @@ python factory_apps_installer_run() {
                     f"srcuri={src_uri}"
                 )
 
-            # Use per-app install_path if present, otherwise default installpath
+            # Use per-app installpath if present, otherwise default installpath
             if "installpath" in app:
                 app_install_path = app.get("installpath")
 
