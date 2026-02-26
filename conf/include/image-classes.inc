@@ -25,3 +25,6 @@ IMAGE_CLASSES += "${@bb.utils.contains('DISTRO_FEATURES', 'enable_ralf', 'ralf-s
 
 # Install factory-apps
 IMAGE_CLASSES += "${@bb.utils.contains('DISTRO_FEATURES', 'enable_ralf', 'install-factoryapps', '', d)}"
+
+# Post-rootfs hook for converting apparmor text profiles to binary
+IMAGE_CLASSES += "${@bb.utils.contains('DISTRO_FEATURES', 'apparmor', 'apparmor_binprofiles', '', d)}"
