@@ -74,8 +74,9 @@ Each entry supports:
     "sha256sum": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
   }
 ]
-
+```
 *In this example, `app1.bolt` will be installed to `/opt/apps/specific/app1.bolt`. `app2.bolt` will be installed to the directory specified by the global `FACTORY_APPS_PATH`.*
+
 
 
 
