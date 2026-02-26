@@ -53,7 +53,7 @@ Each entry supports:
     - The value must be exactly 64 hexadecimal characters (`0-9`, `a-f`, `A-F`).
     - The build will fail (`bb.fatal`) if the value is missing, empty, not a string, or not a valid 64-character hex string.
 
-- `install_path` (string, optional)
+- `installpath` (string, optional)
   - An absolute path within the target `rootfs` where this specific artifact should be installed.
   - This value, if provided, overrides the global `FACTORY_APPS_PATH` for this entry.
   - **Validation**: Must be an absolute path (start with `/`) and must not contain `..` or `\`.
@@ -76,5 +76,6 @@ Each entry supports:
 ]
 
 *In this example, `app1.bolt` will be installed to `/opt/apps/specific/app1.bolt`. `app2.bolt` will be installed to the directory specified by the global `FACTORY_APPS_PATH`.*
+
 
 
