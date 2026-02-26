@@ -320,18 +320,26 @@ python factory_apps_installer_run() {
                     f"srcuri={src_uri}"
                 )
 
-            # Use per-app install_path if present, otherwise default install_path
-            app_install_path = app.get("install_path")
-            if isinstance(app_install_path, str) and app_install_path.strip():
+            # Use per-app install_path if present, otherwise default installpath
+            if "installpath" in app:
+                app_install_path = app.get("installpath")
+
+                if not isinstance(app_install_path, str) or not app_install_path.strip():
+                    bb.fatal(
+                        f"Factory app entry #{idx} ('{package_name}') has an invalid 'installpath' "
+                        f"(must be a non-empty string)."
+                    )
+
                 install_path_to_use = app_install_path.strip()
             else:
                 # Fall back to default_install_path, but ensure it is valid
                 if not isinstance(default_install_path, str) or not default_install_path.strip():
                     bb.fatal(
-                        f"Factory app entry #{idx} ('{package_name}') has no valid 'install_path' and "
+                        f"Factory app entry #{idx} ('{package_name}') is missing 'install_path' and "
                         f"default FACTORY_APPS_PATH is missing or empty."
                     )
                 install_path_to_use = default_install_path.strip()
+
             install_path_norm = normalize_and_validate_install_path(install_path_to_use)
 
             bb.note(f"Processing factory app [{idx}]: packagename='{package_name}', srcuri='{src_uri}', install_path='{install_path_norm}'")
