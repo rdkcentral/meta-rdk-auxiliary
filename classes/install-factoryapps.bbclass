@@ -60,8 +60,8 @@ python factory_apps_installer_run() {
         bb.warn(f"Factory apps JSON manifest not found: {json_file} (skipping)")
         return
 
-     if not isinstance(default_install_path, str) or not default_install_path.strip():
-        bb.warn("FACTORY_APPS_PATH not set; each app must specify its own 'install_path' in the JSON manifest")
+    if not isinstance(default_install_path, str) or not default_install_path.strip():
+        bb.warn("FACTORY_APPS_PATH not set; each app must specify its own 'installpath' in the JSON manifest")
 
     def normalize_and_validate_install_path(path_value):
         """Validate FACTORY_APPS_PATH and return a normalized POSIX path.
@@ -335,7 +335,7 @@ python factory_apps_installer_run() {
                 # Fall back to default_install_path, but ensure it is valid
                 if not isinstance(default_install_path, str) or not default_install_path.strip():
                     bb.fatal(
-                        f"Factory app entry #{idx} ('{package_name}') is missing 'install_path' and "
+                        f"Factory app entry #{idx} ('{package_name}') is missing 'installpath' and "
                         f"default FACTORY_APPS_PATH is missing or empty."
                     )
                 install_path_to_use = default_install_path.strip()
