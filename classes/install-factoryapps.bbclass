@@ -23,7 +23,13 @@
 #
 # Configuration:
 #   FACTORY_APPS_JSON_FILE - Path to JSON manifest
-#   FACTORY_APPS_PATH      - Installation directory
+#   FACTORY_APPS_PATH      - Default installation directory for all apps (optional)
+#                           If unset, each app in the manifest must define its own
+#                           "installpath" field.
+#
+# JSON manifest:
+#   Each app entry may optionally specify "install_path" to override the default
+#   FACTORY_APPS_PATH for that specific app.
 #
 # Detailed documentation:
 # See: docs/install-factoryapps.md
@@ -44,7 +50,7 @@ python factory_apps_installer_run() {
 
     json_file = d.getVar("FACTORY_APPS_JSON_FILE")
     rootfs = d.getVar("IMAGE_ROOTFS")
-    install_path = d.getVar("FACTORY_APPS_PATH")
+    default_install_path = d.getVar("FACTORY_APPS_PATH")
 
     if not json_file:
         bb.warn("FACTORY_APPS_JSON_FILE not set; skipping factory apps install")
@@ -54,8 +60,8 @@ python factory_apps_installer_run() {
         bb.warn(f"Factory apps JSON manifest not found: {json_file} (skipping)")
         return
 
-    if not install_path:
-        bb.fatal("FACTORY_APPS_PATH not set; please set FACTORY_APPS_PATH to the factory apps install directory")
+    if not isinstance(default_install_path, str) or not default_install_path.strip():
+        bb.warn("FACTORY_APPS_PATH not set; each app must specify its own 'installpath' in the JSON manifest")
 
     def normalize_and_validate_install_path(path_value):
         """Validate FACTORY_APPS_PATH and return a normalized POSIX path.
@@ -63,7 +69,7 @@ python factory_apps_installer_run() {
         The path is expected to be an absolute POSIX path within the target rootfs.
         """
         if not isinstance(path_value, str) or not path_value.strip():
-            bb.fatal("FACTORY_APPS_PATH is empty")
+            bb.fatal("Invalid install path: path cannot be empty")
 
         raw = path_value.strip()
 
@@ -85,8 +91,6 @@ python factory_apps_installer_run() {
             bb.fatal(f"Invalid FACTORY_APPS_PATH '{raw}': normalization produced a non-absolute path")
 
         return normalized
-
-    install_path_norm = normalize_and_validate_install_path(install_path)
 
     def ensure_under_rootfs(dest_path):
         """Fatal if dest_path resolves outside IMAGE_ROOTFS."""
@@ -185,7 +189,7 @@ python factory_apps_installer_run() {
 
         return local_path
 
-    def copy_package(src_file, package_name, overwrite_expected):
+    def copy_package(src_file, package_name, overwrite_expected, install_path_norm):
         """Copy package to final destination."""
         rel_dir_posix = install_path_norm.lstrip("/")
         rel_parts = [p for p in rel_dir_posix.split("/") if p]
@@ -316,13 +320,35 @@ python factory_apps_installer_run() {
                     f"srcuri={src_uri}"
                 )
 
-            bb.note(f"Processing factory app [{idx}]: packagename='{package_name}', srcuri='{src_uri}'")
+            # Use per-app installpath if present, otherwise default installpath
+            if "installpath" in app:
+                app_install_path = app.get("installpath")
+
+                if not isinstance(app_install_path, str) or not app_install_path.strip():
+                    bb.fatal(
+                        f"Factory app entry #{idx} ('{package_name}') has an invalid 'installpath' "
+                        f"(must be a non-empty string)."
+                    )
+
+                install_path_to_use = app_install_path.strip()
+            else:
+                # Fall back to default_install_path, but ensure it is valid
+                if not isinstance(default_install_path, str) or not default_install_path.strip():
+                    bb.fatal(
+                        f"Factory app entry #{idx} ('{package_name}') is missing 'installpath' and "
+                        f"default FACTORY_APPS_PATH is missing or empty."
+                    )
+                install_path_to_use = default_install_path.strip()
+
+            install_path_norm = normalize_and_validate_install_path(install_path_to_use)
+
+            bb.note(f"Processing factory app [{idx}]: packagename='{package_name}', srcuri='{src_uri}', install_path='{install_path_norm}'")
 
             # Use BitBake fetcher to handle all protocols (file://, http://, https://, ftp://, etc.)
             local_file = fetch_file(src_uri, sha_value, package_name)
 
             # Copy the fetched file
-            copy_package(local_file, package_name, overwrite_expected=overwrite_expected)
+            copy_package(local_file, package_name, overwrite_expected=overwrite_expected, install_path_norm=install_path_norm)
             installed_packagenames_in_run.add(package_name)
             return True
 
