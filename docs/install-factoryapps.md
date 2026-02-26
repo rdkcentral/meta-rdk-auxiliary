@@ -20,7 +20,7 @@ Apps are described by a JSON manifest. For each entry, the class fetches a remot
   - An invalid, missing, or empty `sha256sum`.
   - Failure to fetch an artifact.
   - Checksum validation failure for a fetched artifact.
-  - An invalid `install_path` or `FACTORY_APPS_PATH`.
+  - An invalid `installpath` or `FACTORY_APPS_PATH`.
   - An attempt to write outside of `${IMAGE_ROOTFS}` or overwrite a symlink.
 - **Duplicate `packagename` entries**: The class detects and warns about duplicate `packagename` entries in the manifest. The build proceeds, and later entries in the list will overwrite artifacts installed by earlier entries with the same `packagename`.
 
@@ -33,7 +33,7 @@ Set the following variables in your image, distro config, or `local.conf`:
 
 - `FACTORY_APPS_PATH`
   - **Optional**: The default absolute installation directory inside the target `rootfs` (e.g., `/opt/factoryapps`).
-  - If this is not set, **every entry** in the JSON manifest must specify its own `install_path`. If an entry is missing `install_path` and `FACTORY_APPS_PATH` is also unset, the build will fail.
+  - If this is not set, **every entry** in the JSON manifest must specify its own `installpath`. If an entry is missing `installpath` and `FACTORY_APPS_PATH` is also unset, the build will fail.
 
 ## JSON Manifest Format
 The manifest must be a JSON array (list) of objects.
@@ -66,7 +66,7 @@ Each entry supports:
     "packagename": "app.bolt",
     "srcuri": "https://example.com/app.bolt",
     "sha256sum": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-    "install_path": "/opt/apps/specific"
+    "installpath": "/opt/apps/specific"
   },
  {
         "packagename": "app2.bolt",
@@ -76,3 +76,4 @@ Each entry supports:
 ]
 
 *In this example, `app1.bolt` will be installed to `/opt/apps/specific/app1.bolt`. `app2.bolt` will be installed to the directory specified by the global `FACTORY_APPS_PATH`.*
+
