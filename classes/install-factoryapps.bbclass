@@ -23,7 +23,13 @@
 #
 # Configuration:
 #   FACTORY_APPS_JSON_FILE - Path to JSON manifest
-#   FACTORY_APPS_PATH      - Default Installation directory
+#   FACTORY_APPS_PATH      - Default installation directory for all apps (optional)
+#                           If unset, each app in the manifest must define its own
+#                           "install_path" field.
+#
+# JSON manifest:
+#   Each app entry may optionally specify "install_path" to override the default
+#   FACTORY_APPS_PATH for that specific app.
 #
 # Detailed documentation:
 # See: docs/install-factoryapps.md
@@ -55,7 +61,7 @@ python factory_apps_installer_run() {
         return
 
     if not default_install_path:
-        bb.warn("FACTORY_APPS_PATH not set; Ensure install path is set in JSON file for every app")
+        bb.warn("FACTORY_APPS_PATH not set; each app must specify its own 'install_path' in the JSON manifest")
 
     def normalize_and_validate_install_path(path_value):
         """Validate FACTORY_APPS_PATH and return a normalized POSIX path.
@@ -63,7 +69,7 @@ python factory_apps_installer_run() {
         The path is expected to be an absolute POSIX path within the target rootfs.
         """
         if not isinstance(path_value, str) or not path_value.strip():
-            bb.fatal("FACTORY_APPS_PATH to install is empty")
+            bb.fatal("Invalid install path: path cannot be empty")
 
         raw = path_value.strip()
 
@@ -314,11 +320,17 @@ python factory_apps_installer_run() {
                     f"srcuri={src_uri}"
                 )
 
-            #Use per-app install_path if present, otherwise default install_path
+            # Use per-app install_path if present, otherwise default install_path
             app_install_path = app.get("install_path")
             if isinstance(app_install_path, str) and app_install_path.strip():
                 install_path_to_use = app_install_path.strip()
             else:
+                # Fall back to default_install_path, but ensure it is valid
+                if not isinstance(default_install_path, str) or not default_install_path.strip():
+                    bb.fatal(
+                        f"Factory app entry #{idx} ('{package_name}') has no valid 'install_path' and "
+                        f"default FACTORY_APPS_PATH is missing or empty."
+                    )
                 install_path_to_use = default_install_path.strip()
             install_path_norm = normalize_and_validate_install_path(install_path_to_use)
 
