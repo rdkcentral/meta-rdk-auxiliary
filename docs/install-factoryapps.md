@@ -63,17 +63,18 @@ Each entry supports:
 
 [
   {
-    "packagename": "app.bolt",
+    "packagename": "app1.bolt",
     "srcuri": "https://example.com/app.bolt",
-    "sha256sum": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    "sha256sum": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     "installpath": "/opt/apps/specific"
   },
- {
-        "packagename": "app2.bolt",
-        "srcuri": "file:///path/to/local/app2.bolt",
-        "sha256sum": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
- }
+  {
+    "packagename": "app2.bolt",
+    "srcuri": "file:///path/to/local/app2.bolt",
+    "sha256sum": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+  }
 ]
 
 *In this example, `app1.bolt` will be installed to `/opt/apps/specific/app1.bolt`. `app2.bolt` will be installed to the directory specified by the global `FACTORY_APPS_PATH`.*
+
 
