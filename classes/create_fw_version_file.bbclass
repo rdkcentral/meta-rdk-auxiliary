@@ -39,7 +39,8 @@ def get_ipk_feed_uris(d):
         if feed is not None:
             arch_name = feed.group(1)
             arch_uri = feed.group(2)
-            feed_dict[arch_name] = arch_uri
+            if not arch_uri.startswith("file:"):
+                feed_dict[arch_name] = arch_uri
     return feed_dict
 
 python create_version_file() {
