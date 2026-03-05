@@ -30,6 +30,17 @@ def extract_layer_versions_from_file(d, file_path):
 
     return versions
 
+def get_ipk_feed_uris(d):
+    import re
+    ipk_feed_uris = d.getVar("IPK_FEED_URIS", True) or ""
+    feed_dict = {}
+    for line in ipk_feed_uris.split():
+        feed = re.match(r"^[ \t]*([^#]+)##(\S+)[ \t]*$", line)
+        if feed is not None:
+            arch_name = feed.group(1)
+            arch_uri = feed.group(2)
+            feed_dict[arch_name] = arch_uri
+    return feed_dict
 
 python create_version_file() {
     version_file = os.path.join(d.getVar("IMAGE_ROOTFS", True), 'version.txt')
@@ -64,6 +75,9 @@ python create_version_file() {
         fw.write('JENKINS_BUILD_NUMBER={0}\n'.format(build_number))
         fw.write('BRANCH={0}\n'.format(branch))
         fw.write('BUILD_TIME={0}\n'.format(build_time))
+        feed_dict = get_ipk_feed_uris(d)
+        for arch_name, arch_uri in feed_dict.items():
+            fw.write(f"IPK_FEED_URI_{arch_name}={arch_uri}\n")
         fw.close()
 }
 
