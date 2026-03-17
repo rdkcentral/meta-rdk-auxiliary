@@ -23,13 +23,13 @@
 #
 # Configuration:
 #   FACTORY_APPS_JSON_FILE - Path to JSON manifest
-#   FACTORY_APPS_PATH      - Default installation directory for all apps (optional)
+#   FACTORY_APP_PATH      - Default installation directory for all apps (optional)
 #                           If unset, each app in the manifest must define its own
 #                           "installpath" field.
 #
 # JSON manifest:
 #   Each app entry may optionally specify "installpath" to override the default
-#   FACTORY_APPS_PATH for that specific app.
+#   FACTORY_APP_PATH for that specific app.
 #
 # Detailed documentation:
 # See: docs/install-factoryapps.md
@@ -50,7 +50,7 @@ python factory_apps_installer_run() {
 
     json_file = d.getVar("FACTORY_APPS_JSON_FILE")
     rootfs = d.getVar("IMAGE_ROOTFS")
-    default_install_path = d.getVar("FACTORY_APPS_PATH")
+    default_install_path = d.getVar("FACTORY_APP_PATH")
 
     if not json_file:
         bb.warn("FACTORY_APPS_JSON_FILE not set; skipping factory apps install")
@@ -61,7 +61,7 @@ python factory_apps_installer_run() {
         return
 
     if not isinstance(default_install_path, str) or not default_install_path.strip():
-        bb.warn("FACTORY_APPS_PATH not set; each app must specify its own 'installpath' in the JSON manifest")
+        bb.warn("FACTORY_APP_PATH not set; each app must specify its own 'installpath' in the JSON manifest")
 
     def normalize_and_validate_install_path(path_value):
         """Validate path and return a normalized POSIX path.
@@ -73,22 +73,22 @@ python factory_apps_installer_run() {
 
         raw = path_value.strip()
 
-        # Treat FACTORY_APPS_PATH as a target (POSIX) path; reject Windows separators.
+        # Treat FACTORY_APP_PATH as a target (POSIX) path; reject Windows separators.
         if "\\" in raw:
-            bb.fatal(f"Invalid FACTORY_APPS_PATH '{raw}': backslashes are not allowed")
+            bb.fatal(f"Invalid FACTORY_APP_PATH '{raw}': backslashes are not allowed")
 
         if not raw.startswith("/"):
-            bb.fatal(f"Invalid FACTORY_APPS_PATH '{raw}': must be an absolute path (start with '/')")
+            bb.fatal(f"Invalid FACTORY_APP_PATH '{raw}': must be an absolute path (start with '/')")
 
         # Reject any '..' path elements to avoid escapes when combined with IMAGE_ROOTFS.
         parts = [p for p in raw.split("/") if p]
         if any(p == ".." for p in parts):
-            bb.fatal(f"Invalid FACTORY_APPS_PATH '{raw}': '..' is not allowed")
+            bb.fatal(f"Invalid FACTORY_APP_PATH '{raw}': '..' is not allowed")
 
         normalized = posixpath.normpath(raw)
         # normpath can remove trailing slashes; ensure it remains absolute
         if not normalized.startswith("/"):
-            bb.fatal(f"Invalid FACTORY_APPS_PATH '{raw}': normalization produced a non-absolute path")
+            bb.fatal(f"Invalid FACTORY_APP_PATH '{raw}': normalization produced a non-absolute path")
 
         return normalized
 
@@ -194,7 +194,7 @@ python factory_apps_installer_run() {
         rel_dir_posix = install_path_norm.lstrip("/")
         rel_parts = [p for p in rel_dir_posix.split("/") if p]
 
-        # Build destination path: ${IMAGE_ROOTFS}${FACTORY_APPS_PATH}
+        # Build destination path: ${IMAGE_ROOTFS}${FACTORY_APP_PATH}
         dest_dir = os.path.join(rootfs, *rel_parts) if rel_parts else rootfs
         dest_file = os.path.join(dest_dir, package_name)
 
@@ -282,7 +282,7 @@ python factory_apps_installer_run() {
                 bb.fatal(
                     f"Invalid packagename '{package_name}': must be a plain filename (no '..', '/' or '\\') "
                     "to prevent directory traversal and ensure the artifact is installed directly under "
-                    "FACTORY_APPS_PATH"
+                    "FACTORY_APP_PATH"
                 )
 
             src_uri_raw = app.get("srcuri")
@@ -336,7 +336,7 @@ python factory_apps_installer_run() {
                 if not isinstance(default_install_path, str) or not default_install_path.strip():
                     bb.fatal(
                         f"Factory app entry #{idx} ('{package_name}') is missing 'installpath' and "
-                        f"default FACTORY_APPS_PATH is missing or empty."
+                        f"default FACTORY_APP_PATH is missing or empty."
                     )
                 install_path_to_use = default_install_path.strip()
 
