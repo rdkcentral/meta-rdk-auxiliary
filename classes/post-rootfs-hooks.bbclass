@@ -41,7 +41,7 @@ update_build_type_property() {
     fi
 }
 
-enable_labsigned_property() {  
+enable_labsigned_property() {
      if [ -f "${R}/etc/device.properties" ]; then
         sed -i 's/^LABSIGNED_ENABLED=false/LABSIGNED_ENABLED=true/g' ${R}/etc/device.properties
      fi
