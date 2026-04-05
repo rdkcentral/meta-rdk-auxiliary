@@ -38,6 +38,8 @@ python () {
     if fdo_mode == "use":
         import os, glob
 
+        d.appendVar('SRC_URI', ' file://fdo-profiles')
+        bb.note("fdo-profiling.bbclass: Appended fdo-profiles to SRC_URI")
         recipe_profile_dir = d.getVar('FDO_PROFILE_INPUT_NATIVE_DIR')
 
         if not os.path.isdir(recipe_profile_dir):
