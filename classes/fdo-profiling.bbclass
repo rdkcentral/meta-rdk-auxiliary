@@ -27,19 +27,36 @@ def fdo_get_flags(d):
 # ── Conditionally register the task only when FDO is active ───────────────────
 python () {
     if 'ENABLE_FDO_PROFILING' not in (d.getVar('DISTRO_FEATURES') or '').split():
-        # bb.note("fdo.bbclass: ENABLE_FDO_PROFILING not in DISTRO_FEATURES. FDO fully disabled.")
         return
+
     fdo_mode = (d.getVar('FDO_PROFILE_MODE') or "").strip().lower()
     if fdo_mode not in ("", "generate", "use"):
         bb.fatal("fdo.bbclass: FDO_PROFILE_MODE must be '', 'generate', or 'use'. Got: '%s'" % fdo_mode)
     if fdo_mode:
         bb.note("fdo.bbclass: FDO_PROFILE_MODE = '%s'" % fdo_mode)
-    #else:
-        #bb.note("fdo.bbclass: FDO disabled.")
-    
-    if fdo_mode in ("generate", "use"):
-        bb.build.addtask('do_fdoprofile_sanity_check', 'do_configure', 'do_unpack', d)
-        bb.note("fdo.bbclass: Registered do_fdoprofile_sanity_check task (FDO_PROFILE_MODE=%s)" % fdo_mode)
+
+    if fdo_mode == "use":
+        import os, glob
+
+        recipe_profile_dir = d.getVar('FDO_PROFILE_INPUT_NATIVE_DIR')
+
+        if not os.path.isdir(recipe_profile_dir):
+            bb.fatal(
+                "fdo.bbclass: FDO_PROFILE_MODE=use but profile directory not found: %s\n"
+                "Run a FDO_PROFILE_MODE=generate build first and collect profiles."
+                % recipe_profile_dir
+            )
+
+        profiles = glob.glob(os.path.join(recipe_profile_dir, "**", "*.gcda"), recursive=True)
+        if not profiles:
+            bb.fatal(
+                "fdo.bbclass: FDO_PROFILE_MODE=use but no .gcda files found in: %s\n"
+                "Run a FDO_PROFILE_MODE=generate build first and collect profiles."
+                % recipe_profile_dir
+            )
+
+        bb.note("fdo.bbclass: Found %d profile file(s) in %s" % (len(profiles), recipe_profile_dir))
+        bb.note("fdo.bbclass: fdoprofile_sanity_check passed (FDO_PROFILE_MODE=%s)" % fdo_mode)
 }
 
 # ── SAFE FLAG APPEND — uses :append, never overwrites existing flags ────────
@@ -48,31 +65,3 @@ python () {
 CFLAGS:append   = " ${@fdo_get_flags(d)} "
 CXXFLAGS:append = " ${@fdo_get_flags(d)} "
 LDFLAGS:append = " ${@fdo_get_flags(d)} "
-
-# ── Use mode: validate profiles exist before compile ──────────────────────────
-python do_fdoprofile_sanity_check() {
-    import os, glob
-
-    fdo_mode = (d.getVar('FDO_PROFILE_MODE') or "").strip().lower()
-    if fdo_mode != "use":
-        return
-
-    recipe_profile_dir = d.getVar('FDO_PROFILE_INPUT_NATIVE_DIR')
-
-    if not os.path.isdir(recipe_profile_dir):
-        bb.fatal(
-            "fdo.bbclass: FDO_PROFILE_MODE=use but profile directory not found: %s\n"
-            "Run a FDO_PROFILE_MODE=generate build first and collect profiles."
-            % recipe_profile_dir
-        )
-
-    profiles = glob.glob(os.path.join(recipe_profile_dir, "**", "*.gcda"), recursive=True)
-    if not profiles:
-        bb.fatal(
-            "fdo.bbclass: FDO_PROFILE_MODE=use but no .gcda files found in: %s\n"
-            "Run a FDO_PROFILE_MODE=generate build first and collect profiles."
-            % recipe_profile_dir
-        )
-
-    bb.note("fdo.bbclass: Found %d profile file(s) in %s" % (len(profiles), recipe_profile_dir))
-}
