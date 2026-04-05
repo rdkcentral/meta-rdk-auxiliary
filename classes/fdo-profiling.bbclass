@@ -10,7 +10,7 @@
 # ── Defaults ───────────────────────────────────────────────────────────
 FDO_PROFILE_MODE               ??= ""
 FDO_PROFILE_OUTPUT_TARGET_DIR        ??= "/opt"
-FDO_PROFILE_INPUT_NATIVE_DIR ??= "${WORKDIR}/fdo-profiles"
+FDO_PROFILE_INPUT_NATIVE_DIR ??= "${FILE_DIRNAME}/files/fdo-profiles"
 
 # ── Internal: compute FDO flags (empty string when FDO disabled) ──────────────
 def fdo_get_flags(d):
