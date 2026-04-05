@@ -42,7 +42,7 @@ python () {
 
         if not os.path.isdir(recipe_profile_dir):
             bb.fatal(
-                "fdo.bbclass: FDO_PROFILE_MODE=use but profile directory not found: %s\n"
+                "fdo-profiling.bbclass: FDO_PROFILE_MODE=use but profile directory not found: %s\n"
                 "Run a FDO_PROFILE_MODE=generate build first and collect profiles."
                 % recipe_profile_dir
             )
@@ -50,7 +50,7 @@ python () {
         profiles = glob.glob(os.path.join(recipe_profile_dir, "**", "*.gcda"), recursive=True)
         if not profiles:
             bb.fatal(
-                "fdo.bbclass: FDO_PROFILE_MODE=use but no .gcda files found in: %s\n"
+                "fdo-profiling.bbclass: FDO_PROFILE_MODE=use but no .gcda files found in: %s\n"
                 "Run a FDO_PROFILE_MODE=generate build first and collect profiles."
                 % recipe_profile_dir
             )
