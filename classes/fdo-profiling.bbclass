@@ -31,9 +31,9 @@ python () {
 
     fdo_mode = (d.getVar('FDO_PROFILE_MODE') or "").strip().lower()
     if fdo_mode not in ("", "generate", "use"):
-        bb.fatal("fdo.bbclass: FDO_PROFILE_MODE must be '', 'generate', or 'use'. Got: '%s'" % fdo_mode)
+        bb.fatal("fdo-profiling.bbclass: FDO_PROFILE_MODE must be '', 'generate', or 'use'. Got: '%s'" % fdo_mode)
     if fdo_mode:
-        bb.note("fdo.bbclass: FDO_PROFILE_MODE = '%s'" % fdo_mode)
+        bb.note("fdo-profiling.bbclass: FDO_PROFILE_MODE = '%s'" % fdo_mode)
 
     if fdo_mode == "use":
         import os, glob
@@ -55,8 +55,8 @@ python () {
                 % recipe_profile_dir
             )
 
-        bb.note("fdo.bbclass: Found %d profile file(s) in %s" % (len(profiles), recipe_profile_dir))
-        bb.note("fdo.bbclass: fdoprofile_sanity_check passed (FDO_PROFILE_MODE=%s)" % fdo_mode)
+        bb.note("fdo-profiling.bbclass: Found %d profile file(s) in %s" % (len(profiles), recipe_profile_dir))
+        bb.note("fdo-profiling.bbclass: fdoprofile_sanity_check passed (FDO_PROFILE_MODE=%s)" % fdo_mode)
 }
 
 # ── SAFE FLAG APPEND — uses :append, never overwrites existing flags ────────
