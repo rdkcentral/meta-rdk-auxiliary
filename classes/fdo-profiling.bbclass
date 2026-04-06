@@ -23,8 +23,8 @@ def fdo_get_flags(d, fdo_mode):
     return ""
 
 python () {
-    if not bb.utils.contains('DISTRO_FEATURES', 'enable-fdo-profiling', True, False, d)
-        bb.fatal("[FDO-PROFILING]: Distro feature 'enable-fdo-profiling' not enabled)
+    if not bb.utils.contains('DISTRO_FEATURES', 'enable-fdo-profiling', True, False, d):
+        bb.fatal("[FDO-PROFILING]: Distro feature 'enable-fdo-profiling' not enabled")
         return
 
     fdo_mode = (d.getVar('FDO_PROFILE_MODE') or "").strip().lower()
@@ -37,7 +37,7 @@ python () {
         bb.build.addtask('do_fdoprofile_sanity_check', 'do_configure', 'do_unpack', d)
 
     if fdo_mode in ("generate", "use"):
-        bb.note("[FDO-PROFILING]: FDO_PROFILE_MODE set to '%s'" % fdo_mode)
+        bb.note("[FDO-PROFILING]: FDO_PROFILE_MODE set to '%s'" % fdo_mode")
         flags = fdo_get_flags(d, fdo_mode)
         d.appendVar('CFLAGS', flags)
         d.appendVar('CXXFLAGS', flags)
