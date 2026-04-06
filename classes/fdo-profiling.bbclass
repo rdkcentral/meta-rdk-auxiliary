@@ -24,7 +24,7 @@ def fdo_get_flags(d, fdo_mode):
 
 python () {
     if not bb.utils.contains('DISTRO_FEATURES', 'enable-fdo-profiling', True, False, d):
-        bb.fatal("[FDO-PROFILING]: Distro feature 'enable-fdo-profiling' not enabled")
+        bb.note("[FDO-PROFILING]: Distro feature 'enable-fdo-profiling' not enabled")
         return
 
     fdo_mode = (d.getVar('FDO_PROFILE_MODE') or "").strip().lower()
