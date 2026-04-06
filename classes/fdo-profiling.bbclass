@@ -20,8 +20,7 @@ def fdo_get_flags(d, fdo_mode):
     if fdo_mode == "generate":
         return " -fprofile-generate=%s -fprofile-correction" % d.getVar('FDO_PROFILE_OUTPUT_TARGET_DIR')
     elif fdo_mode == "use":
-        return " -fprofile-use=%s -fprofile-correction -Wno-error=missing-profile" % d.getVar('FDO_PROFILE_INPUT_NATIVE_DIR')
-        #return " -fprofile-use=%s -fprofile-correction" % d.getVar('FDO_PROFILE_USE_DIR')
+        return " -fprofile-use=%s -fprofile-correction -Wno-error=missing-profile" % d.getVar('FDO_PROFILE_USE_DIR')
     return ""
 
 python () {
