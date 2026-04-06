@@ -29,7 +29,7 @@ python () {
 
     fdo_mode = (d.getVar('FDO_PROFILE_MODE') or "").strip().lower()
     if fdo_mode not in ("", "generate", "use"):
-        bb.fatal("[FDO-PROFILING]: FDO_PROFILE_MODE not set)
+        bb.fatal("[FDO-PROFILING]: FDO_PROFILE_MODE not set")
 
     if fdo_mode == "use":
         prof_src_dir = d.getVar('FDO_PROFILE_LOCAL_DIR')
