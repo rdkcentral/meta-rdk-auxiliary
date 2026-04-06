@@ -35,7 +35,7 @@ python () {
         flags = fdo_get_flags(d, fdo_mode)
         d.appendVar('CFLAGS',     flags)
         d.appendVar('CXXFLAGS',   flags)
-        d.appendVar('LDCFLAGS',   flags)
+        d.appendVar('LDFLAGS',   flags)
         bb.note("fdo-profiling.bbclass: Appended FDO flags to CFLAGS/CXXFLAGS/LDFLAGS: %s" % flags)
 
     if fdo_mode == "use":
