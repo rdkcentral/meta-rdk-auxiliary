@@ -47,15 +47,11 @@ python () {
 python do_fdoprofile_sanity_check() {
     import os, glob
 
-    #fdo_mode = (d.getVar('FDO_PROFILE_MODE') or "").strip().lower()
-    #if fdo_mode != "use":
-    #    return
-
     recipe_profile_dir = d.getVar('FDO_PROFILE_INPUT_NATIVE_DIR')
 
     if not os.path.isdir(recipe_profile_dir):
         bb.fatal(
-            "fdo.bbclass: FDO_PROFILE_MODE=use but profile directory not found: %s\n"
+            "fdo-profiling.bbclass: FDO_PROFILE_MODE=use but profile directory not found: %s\n"
             "Run a FDO_PROFILE_MODE=generate build first and collect profiles."
             % recipe_profile_dir
         )
@@ -68,5 +64,5 @@ python do_fdoprofile_sanity_check() {
             % recipe_profile_dir
         )
 
-    bb.note("fdo.bbclass: Found %d profile file(s) in %s" % (len(profiles), recipe_profile_dir))
+    bb.note("fdo-profiling.bbclass: Found %d profile file(s) in %s" % (len(profiles), recipe_profile_dir))
 }
