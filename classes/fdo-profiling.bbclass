@@ -46,23 +46,12 @@ python () {
 
 python do_fdoprofile_sanity_check() {
     import os, glob
-
     recipe_profile_dir = d.getVar('FDO_PROFILE_INPUT_NATIVE_DIR')
 
     if not os.path.isdir(recipe_profile_dir):
-        bb.fatal(
-            "fdo-profiling.bbclass: FDO_PROFILE_MODE=use but profile directory not found: %s\n"
-            "Run a FDO_PROFILE_MODE=generate build first and collect profiles."
-            % recipe_profile_dir
-        )
+        bb.fatal("[FDO-PROFILING]: %s directory not found" % recipe_profile_dir)
 
     profiles = glob.glob(os.path.join(recipe_profile_dir, "**", "*.gcda"), recursive=True)
     if not profiles:
-        bb.fatal(
-            "fdo-profiling.bbclass: FDO_PROFILE_MODE=use but no .gcda files found in: %s\n"
-            "Run a FDO_PROFILE_MODE=generate build first and collect profiles."
-            % recipe_profile_dir
-        )
-
-    bb.note("fdo-profiling.bbclass: Found %d profile file(s) in %s" % (len(profiles), recipe_profile_dir))
+        bb.fatal("[FDO-PROFILING]: No profiles found in %s" % recipe_profile_dir)
 }
