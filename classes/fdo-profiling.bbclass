@@ -32,26 +32,9 @@ python () {
         bb.fatal("[FDO-PROFILING]: FDO_PROFILE_MODE not set)
 
     if fdo_mode == "use":
-        import os, glob
-
         prof_src_dir = d.getVar('FDO_PROFILE_LOCAL_DIR')
         d.appendVar('SRC_URI', ' file://%s ' % prof_src_dir)
-        file_dirname = d.getVar('FILE_DIRNAME')
-#        recipe_profile_dir = os.path.join(file_dirname, 'files', d.getVar('FDO_PROFILE_LOCAL_DIR'))
-#
-#        if not os.path.isdir(recipe_profile_dir):
-#            bb.fatal(
-#                "[FDO-PROFILING]: FDO_PROFILE_MODE=use but profile directory not found: %s\n"
-#                "Run a FDO_PROFILE_MODE=generate build first and collect profiles."
-#             )
-#
-#        profiles = glob.glob(os.path.join(recipe_profile_dir, "**", "*.gcda"), recursive=True)
-#        if not profiles:
-#            bb.fatal(
-#                "[FDO-PROFILING]: FDO_PROFILE_MODE=use but no .gcda files found in: %s\n"
-#                "Run a FDO_PROFILE_MODE=generate build first and collect profiles."
-#                % recipe_profile_dir
-#            )
+        bb.build.addtask('do_fdoprofile_sanity_check', 'do_configure', 'do_unpack', d)
 
     if fdo_mode in ("generate", "use"):
         bb.note("[FDO-PROFILING]: FDO_PROFILE_MODE set to '%s'" % fdo_mode)
@@ -59,4 +42,31 @@ python () {
         d.appendVar('CFLAGS', flags)
         d.appendVar('CXXFLAGS', flags)
         d.appendVar('LDFLAGS', flags)
+}
+
+python do_fdoprofile_sanity_check() {
+    import os, glob
+
+    #fdo_mode = (d.getVar('FDO_PROFILE_MODE') or "").strip().lower()
+    #if fdo_mode != "use":
+    #    return
+
+    recipe_profile_dir = d.getVar('FDO_PROFILE_INPUT_NATIVE_DIR')
+
+    if not os.path.isdir(recipe_profile_dir):
+        bb.fatal(
+            "fdo.bbclass: FDO_PROFILE_MODE=use but profile directory not found: %s\n"
+            "Run a FDO_PROFILE_MODE=generate build first and collect profiles."
+            % recipe_profile_dir
+        )
+
+    profiles = glob.glob(os.path.join(recipe_profile_dir, "**", "*.gcda"), recursive=True)
+    if not profiles:
+        bb.fatal(
+            "fdo-profiling.bbclass: FDO_PROFILE_MODE=use but no .gcda files found in: %s\n"
+            "Run a FDO_PROFILE_MODE=generate build first and collect profiles."
+            % recipe_profile_dir
+        )
+
+    bb.note("fdo.bbclass: Found %d profile file(s) in %s" % (len(profiles), recipe_profile_dir))
 }
