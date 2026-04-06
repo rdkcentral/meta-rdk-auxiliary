@@ -9,7 +9,7 @@
 #     FDO_PROFILE_MODE = "use"        → Optimized build (consumes stored profiles)
 #
 
-# Defaults Values
+# Default Values
 FDO_PROFILE_MODE                     ??= ""
 FDO_PROFILE_LOCAL_DIR                ??= "fdo-profiles"
 FDO_PROFILE_OUTPUT_TARGET_DIR        ??= "/opt"
