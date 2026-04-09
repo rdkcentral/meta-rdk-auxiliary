@@ -36,7 +36,7 @@ python update_constants () {
         conf.write("# Templates\n")
         conf.write("########################\n")
         conf.write("template-function t_unified \"${ISODATE} ${MSGHDR} ${MSG}\\n\";\n")
-        conf.write("destination d_unified { file(\"%s/unified-logging.txt\" template(\"$(t_unified)\") log-rotate-size(40M) log-rotate-backlog(3)); };\n" % (log_path))
+        conf.write("destination d_unified { file(\"%s/unified-logging.txt\" template(\"$(t_unified)\")); };\n" % (log_path))
         conf.write("log { source(s_journald); destination(d_unified); };\n")
         conf.close()
 }
