@@ -10,19 +10,19 @@ python do_write_metadata_logrotate() {
     mem_config_file = metadata_dir + "unified-logging_mem.metadata"
     with open(config_file, 'w') as conf:
         conf.write("/opt/logs/unified-logging.txt {\n")
-        conf.write("    size 41943040\n")
-        conf.write("    rotate 3\n")
-        conf.write("    missingok\n")
-        conf.write("    notifempty\n")
-        conf.write("    copytruncate\n")
+        conf.write("size 41943040\n")
+        conf.write("rotate 3\n")
+        conf.write("missingok\n")
+        conf.write("notifempty\n")
+        conf.write("copytruncate\n")
         conf.write("}\n")
     with open(mem_config_file, 'w') as memconf:
         memconf.write("/opt/logs/unified-logging.txt {\n")
-        memconf.write("    size 41943040\n")
-        memconf.write("    rotate 3\n")
-        memconf.write("    missingok\n")
-        memconf.write("    notifempty\n")
-        memconf.write("    copytruncate\n")
+        memconf.write("size 41943040\n")
+        memconf.write("rotate 3\n")
+        memconf.write("missingok\n")
+        memconf.write("notifempty\n")
+        memconf.write("copytruncate\n")
         memconf.write("}\n")
 }
 
