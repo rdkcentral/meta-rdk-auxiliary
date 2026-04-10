@@ -24,9 +24,6 @@ update_conf(){
             cat $file >> $config_dir/logrotatedata.conf
         done
     fi
-    if [ -f "$config_dir/logrotatemax.conf" ]; then
-        cat $config_dir/logrotatemax.conf >> $config_dir/logrotatedata.conf
-    fi
 }
 
 clear_meta(){
