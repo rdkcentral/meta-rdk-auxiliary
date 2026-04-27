@@ -3,6 +3,7 @@
 
 ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("DISTRO_FEATURES", "prod-variant", "prod_image_hook; ", "", d)}'
 ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("DISTRO_FEATURES", "prodlog-variant", "prodlog_image_hook; ", "", d)}'
+ROOTFS_POSTPROCESS_COMMAND += '${@bb.utils.contains("DISTRO_FEATURES", "signedlab-variant", "signedlab_image_hook; ", "", d)}'
 ROOTFS_POSTPROCESS_COMMAND += " common_image_hook; "
 ROOTFS_POSTPROCESS_COMMAND += " create_NM_link; "
 ROOTFS_POSTPROCESS_COMMAND += " remove_hvec_asset; "
@@ -14,6 +15,11 @@ python common_prod_image_hook(){
      bb.build.exec_func('update_noshadow', d)
      bb.build.exec_func('disable_agetty', d)
      bb.build.exec_func('update_build_type_property', d)    
+}
+
+python signedlab_image_hook(){
+     bb.build.exec_func('common_prod_image_hook', d)
+     bb.build.exec_func('enable_labsigned_property', d)
 }
 
 python prod_image_hook(){
@@ -33,6 +39,12 @@ update_build_type_property() {
     if [ -f "${R}/etc/device.properties" ]; then
        sed -i 's/BUILD_TYPE=dev/BUILD_TYPE=prod/g' ${R}/etc/device.properties
     fi
+}
+
+enable_labsigned_property() {
+     if [ -f "${R}/etc/device.properties" ]; then
+        sed -i 's/^LABSIGNED_ENABLED=false/LABSIGNED_ENABLED=true/g' ${R}/etc/device.properties 
+     fi
 }
 
 cleanup_stunnel_socat () {
