@@ -128,15 +128,18 @@ def _embed_all_srcrevs(d):
                     names.append(name)
 
     if names:
-        # Named SRCREVs - emit as "name=rev" pairs
+        # Named SRCREVs - emit only names that actually resolve to a revision.
+        # This avoids serializing empty values such as "src=" for non-SCM
+        # SRC_URI entries that happen to use ;name= for labeling.
         pairs = []
         for name in names:
-            rev = d.getVar('SRCREV_%s' % name) or ''
-            pairs.append('%s=%s' % (name, rev))
-        return ' '.join(pairs)
-    else:
-        # Single unnamed SRCREV (or tarball-only recipe)
-        return d.getVar('SRCREV') or ''
+            rev = d.getVar('SRCREV_%s' % name)
+            if rev:
+                pairs.append('%s=%s' % (name, rev))
+        if pairs:
+            return ' '.join(pairs)
+    # Single unnamed SRCREV (or tarball-only recipe, or no valid named SRCREVs)
+    return d.getVar('SRCREV') or ''
 
 # ---------------------------------------------------------------------------
 # Append two custom fields to every IPK control file.
