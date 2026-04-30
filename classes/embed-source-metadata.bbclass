@@ -7,7 +7,8 @@
 # to assembler builds that consume pre-built IPKs without access to the
 # original recipe files.
 #
-# Source-URI: all non-file:// SRC_URI entries, normalised to HTTPS URLs.
+# Source-URI: all non-file:// SRC_URI entries, normalised to HTTPS URLs
+#   where possible (web-hosting services and ;protocol=https URIs).
 # Source-Rev: SRCREV value(s), including named SRCREVs where present.
 #
 # Counterpart: manifest-srcuri.bbclass (assembler layer) consumes these

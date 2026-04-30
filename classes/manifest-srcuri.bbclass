@@ -92,12 +92,12 @@ def _parse_feed_indexes(tmpdir, oe_rootfs_repo):
 # ---------------------------------------------------------------------------
 # Helper -- try to extract a short SRCREV hash from a BitBake version string.
 # Handles AUTOINC / git fetcher patterns, e.g.:
-#   1.0+git0+7c6608d0db-r1        -> 7c6608d0db
-#   20211102.0+git0+7c6608d0db-r1 -> 7c6608d0db
-#   1.10+git+0+0f1b43536d-r0      -> 0f1b43536d
-#   1.2.1gitr+0+18c4c982a5-r0     -> 18c4c982a5
+#   1.0+git0+7c6608d0db-r1         -> 7c6608d0db
+#   20211102.0+git0+7c6608d0db-r1  -> 7c6608d0db
+#   1.10+git+0+0f1b43536d-r0       -> 0f1b43536d
+#   1.2.1gitr+0+18c4c982a5-r0      -> 18c4c982a5
 #   1.2.3+gitAUTOINC+18c4c982a5-r0 -> 18c4c982a5
-#   25.lts+git0+hash1_hash2-r30   -> hash1_hash2 (multi-SRCREV)
+#   25.lts+git0+abc123_def456-r30  -> abc123_def456 (multi-SRCREV, hex only)
 # Returns None when no hash is found (plain version or bare git-r0).
 # ---------------------------------------------------------------------------
 def _srcrev_from_version(ver):
@@ -195,11 +195,17 @@ python manifest_srcuri_enrich() {
 
         recipe = meta.get('OE', 'unknown')
 
-        # Source-URI: prefer field from embed-source-metadata.bbclass,
-        # fall back to standard Source: field (.bb filename).
+        # Source-URI: prefer field from embed-source-metadata.bbclass.
+        # Only fall back to Source: when it looks like a real URL (contains
+        # ://) -- in opkg Packages stanzas the Source: field is typically a
+        # recipe/source identifier (.bb filename), not a URL.
         # If neither is available, or all tokens are file:// local paths,
         # mark as N/A -- the recipe .bb name is already in the Recipe column.
-        src_uri = meta.get('Source-URI', '') or meta.get('Source', '')
+        src_uri = meta.get('Source-URI', '')
+        if not src_uri:
+            source_fallback = meta.get('Source', '')
+            if '://' in source_fallback:
+                src_uri = source_fallback
 
         # Strip any file:// tokens and the 'unknown' sentinel emitted by
         # embed-source-metadata.bbclass when no remote URIs exist.
