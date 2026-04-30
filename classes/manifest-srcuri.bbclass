@@ -201,17 +201,15 @@ python manifest_srcuri_enrich() {
         # mark as N/A -- the recipe .bb name is already in the Recipe column.
         src_uri = meta.get('Source-URI', '') or meta.get('Source', '')
 
-        # Strip any file:// tokens that may be present in older IPKs
-        # published before embed-source-metadata.bbclass was fixed to
-        # exclude all file:// entries (not just .patch/.diff).
-        # After filtering, keep all remaining remote URLs -- recipes with
-        # multiple repos (e.g. apparmor-generic has rdk-apparmor-profiles
-        # + apparmor-profiles) need both URLs to match their SRCREVs.
-        remote_uris = [t for t in src_uri.split() if not t.startswith('file://')]
+        # Strip any file:// tokens and the 'unknown' sentinel emitted by
+        # embed-source-metadata.bbclass when no remote URIs exist.
+        # After filtering, keep all remaining remote URLs.
+        remote_uris = [t for t in src_uri.split()
+                       if not t.startswith('file://') and t != 'unknown']
         src_uri = ' '.join(remote_uris) if remote_uris else 'N/A'
 
         src_rev = meta.get('Source-Rev', '')
-        if not src_rev:
+        if not src_rev or src_rev in ('INVALID', 'unknown'):
             # Fall back to hash extracted from the version string (git fetcher
             # encodes SRCREV as +git0+<hash>).  If no hash is found (tarball
             # recipes, suppressed SRCREV), use N/A rather than the Yocto-internal

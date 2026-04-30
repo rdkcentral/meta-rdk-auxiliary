@@ -86,10 +86,10 @@ def _embed_all_src_uris(d):
 
         # Strip trailing .git for well-known web hosting services
         # and force https:// since git:// is not web-browsable on these hosts.
-        try:
-            host = url.split('://')[1].split('/')[0]
-        except IndexError:
-            host = ''
+        # Use urlsplit().hostname to correctly handle userinfo (e.g.
+        # ssh://git@github.com/...) without misidentifying git@github.com
+        # as the hostname when splitting on ://.
+        host = urlsplit(url).hostname or ''
         if any(host == h or host.endswith('.' + h) for h in WEB_HOSTS):
             url = re.sub(r'^[a-z+]+://', 'https://', url)
             url = re.sub(r'\.git$', '', url)
@@ -131,12 +131,12 @@ def _embed_all_srcrevs(d):
         # Named SRCREVs - emit as "name=rev" pairs
         pairs = []
         for name in names:
-            rev = d.getVar('SRCREV_%s' % name) or 'INVALID'
+            rev = d.getVar('SRCREV_%s' % name) or ''
             pairs.append('%s=%s' % (name, rev))
         return ' '.join(pairs)
     else:
         # Single unnamed SRCREV (or tarball-only recipe)
-        return d.getVar('SRCREV') or 'INVALID'
+        return d.getVar('SRCREV') or ''
 
 # ---------------------------------------------------------------------------
 # Append two custom fields to every IPK control file.
