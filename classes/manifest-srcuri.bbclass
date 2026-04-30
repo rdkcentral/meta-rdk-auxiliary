@@ -166,18 +166,17 @@ python manifest_srcuri_enrich() {
     # Source-Rev) can be arbitrarily long and are left unpadded.
     import re as _re
     def _version_lookup_candidates(ver):
-        seen = set()
-        candidates = []
-        for c in [
-            ver,
-            _re.sub(r'-r\d+$', '', ver),
-            ver.split(':', 1)[1] if ':' in ver else None,
-            _re.sub(r'-r\d+$', '', ver.split(':', 1)[1]) if ':' in ver else None,
-        ]:
-            if c and c not in seen:
-                seen.add(c)
-                candidates.append(c)
-        return candidates
+        # Build a deduplicated ordered list of version strings to try.
+        # Strip only the trailing -rN Yocto revision suffix (not "-rc1" etc.).
+        # Also try epoch-stripped variants (epoch is the "N:" prefix in ver).
+        ver_plain = _re.sub(r'-r\d+$', '', ver)
+        if ':' in ver:
+            no_epoch = ver.split(':', 1)[1]
+            no_epoch_plain = _re.sub(r'-r\d+$', '', no_epoch)
+            raw = [ver, ver_plain, no_epoch, no_epoch_plain]
+        else:
+            raw = [ver, ver_plain]
+        return list(dict.fromkeys(v for v in raw if v))
 
     rows = []
     for pkg in sorted(pkgs):
