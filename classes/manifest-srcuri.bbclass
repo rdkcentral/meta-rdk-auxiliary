@@ -26,7 +26,8 @@
 # Author: Arjun <arjun_daasuramdass@comcast.com>
 
 # ---------------------------------------------------------------------------
-# Helper -- parse all feed index files and return a dict keyed by package name.
+# Helper -- parse all feed index files and return a dict keyed by
+# (Package, Version, Architecture) 3-tuple.
 # Each value is a dict of the fields from that package's stanza.
 #
 # Two sources are scanned so both build modes are covered:
@@ -95,12 +96,16 @@ def _parse_feed_indexes(tmpdir, oe_rootfs_repo):
 #   20211102.0+git0+7c6608d0db-r1 -> 7c6608d0db
 #   1.10+git+0+0f1b43536d-r0      -> 0f1b43536d
 #   1.2.1gitr+0+18c4c982a5-r0     -> 18c4c982a5
+#   1.2.3+gitAUTOINC+18c4c982a5-r0 -> 18c4c982a5
 #   25.lts+git0+hash1_hash2-r30   -> hash1_hash2 (multi-SRCREV)
 # Returns None when no hash is found (plain version or bare git-r0).
 # ---------------------------------------------------------------------------
 def _srcrev_from_version(ver):
     import re
-    m = re.search(r'\+git[r]?[0-9]*\+([0-9a-f][0-9a-f_]+)', ver)
+    # Match git/gitr marker with optional AUTOINC, +N, or bare digit suffix,
+    # followed by + and the hex hash.  Negative lookbehind prevents matching
+    # 'git' inside longer words (e.g. 'digital').
+    m = re.search(r'(?<![a-zA-Z])git[rR]?(?:AUTOINC|\+[0-9]+|[0-9]*)?\+([0-9a-f][0-9a-f_]+)', ver)
     if m:
         return m.group(1)
     return None

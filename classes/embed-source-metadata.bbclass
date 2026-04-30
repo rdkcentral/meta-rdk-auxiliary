@@ -19,9 +19,8 @@
 # Author: Arjun <arjun_daasuramdass@comcast.com>
 
 # ---------------------------------------------------------------------------
-# Helper: return ALL meaningful (non-patch) source URIs, space-separated,
-# normalised to web-browsable HTTPS URLs so AI tools can form direct
-# file permalinks without further transformation.
+# Helper: return all non-file:// source URIs, space-separated,
+# normalised to web-browsable HTTPS URLs.
 #
 # Normalisation rules applied per URI:
 #   1. Skip all file:// entries (patches, diffs, config files, service units
