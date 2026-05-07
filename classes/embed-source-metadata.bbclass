@@ -137,6 +137,13 @@ def _embed_all_srcrevs(d):
             if rev:
                 pairs.append('%s=%s' % (name, rev))
         if pairs:
+            # Also include the unnamed SRCREV when the recipe has a mix of
+            # unnamed and named git repos (e.g. one main repo + CPC overlays).
+            # In that case SRCREV holds the hash for the unnamed repo and
+            # must not be silently dropped.
+            unnamed = d.getVar('SRCREV') or ''
+            if unnamed and unnamed != 'INVALID':
+                pairs.insert(0, unnamed)
             return ' '.join(pairs)
     # Single unnamed SRCREV (or tarball-only recipe, or no valid named SRCREVs)
     return d.getVar('SRCREV') or ''
