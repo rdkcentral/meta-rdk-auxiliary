@@ -100,7 +100,7 @@ def _embed_all_src_uris(d):
 # ---------------------------------------------------------------------------
 # Helper: return all SCM revisions in a compact, parseable form.
 #
-# Three cases handled:
+# Four cases handled:
 #
 # 1. Single unnamed repo  (SRCREV = "abc123")
 #    Output:  abc123
@@ -108,7 +108,12 @@ def _embed_all_src_uris(d):
 # 2. Single named repo    (SRCREV_main = "abc123", SRCREV_FORMAT = "main")
 #    Output:  main=abc123
 #
-# 3. Multiple named repos (SRCREV_main = "abc123", SRCREV_sub = "def456",
+# 3. Mixed unnamed + named repos
+#    (SRCREV = "aaa111", SRCREV_firewall = "bbb222",
+#     SRCREV_sysintcpc = "ccc333")
+#    Output:  aaa111 firewall=bbb222 sysintcpc=ccc333
+#
+# 4. Multiple named repos (SRCREV_main = "abc123", SRCREV_sub = "def456",
 #                          SRCREV_FORMAT = "main_sub")
 #    Output:  main=abc123 sub=def456
 #
@@ -137,6 +142,13 @@ def _embed_all_srcrevs(d):
             if rev:
                 pairs.append('%s=%s' % (name, rev))
         if pairs:
+            # Also include the unnamed SRCREV when the recipe has a mix of
+            # unnamed and named git repos (e.g. one main repo + CPC overlays).
+            # In that case SRCREV holds the hash for the unnamed repo and
+            # must not be silently dropped.
+            unnamed = d.getVar('SRCREV') or ''
+            if unnamed and unnamed != 'INVALID':
+                pairs.insert(0, unnamed)
             return ' '.join(pairs)
     # Single unnamed SRCREV (or tarball-only recipe, or no valid named SRCREVs)
     return d.getVar('SRCREV') or ''
@@ -149,7 +161,9 @@ def _embed_all_srcrevs(d):
 #
 # Fields added to each IPK CONTROL/control:
 #   Source-URI: <space-separated list of all non-patch source URLs>
-#   Source-Rev: <rev>  |  <name1=rev1 name2=rev2 ...>
+#   Source-Rev can be one of:
+#     - <rev>
+#     - <name1=rev1 name2=rev2 ...>
+#     - <rev name1=rev1 name2=rev2 ...>
 # ---------------------------------------------------------------------------
 PACKAGE_ADD_METADATA_IPK:append = "\nSource-URI: ${@_embed_all_src_uris(d)}\nSource-Rev: ${@_embed_all_srcrevs(d)}"
-
