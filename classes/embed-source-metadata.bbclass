@@ -161,7 +161,9 @@ def _embed_all_srcrevs(d):
 #
 # Fields added to each IPK CONTROL/control:
 #   Source-URI: <space-separated list of all non-patch source URLs>
-#   Source-Rev: <rev> | <name1=rev1 name2=rev2 ...> |
-#               <rev name1=rev1 name2=rev2 ...>
+#   Source-Rev can be one of:
+#     - <rev>
+#     - <name1=rev1 name2=rev2 ...>
+#     - <rev name1=rev1 name2=rev2 ...>
 # ---------------------------------------------------------------------------
 PACKAGE_ADD_METADATA_IPK:append = "\nSource-URI: ${@_embed_all_src_uris(d)}\nSource-Rev: ${@_embed_all_srcrevs(d)}"
