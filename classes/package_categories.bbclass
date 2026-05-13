@@ -32,6 +32,6 @@ PACKAGE_CATEGORY[qt] = "^qt.*"
 PACKAGE_CATEGORY[qualcom] = "^qca6390.*"
 PACKAGE_CATEGORY[voice] = "^ctrlm.* ^xraudio.* ^xr-speech.* ^xr-voice.* ^xr-dsp.* ^xr-mq.* ^xr-sm.* ^xr-time.* ^sky-mic-test.*"
 PACKAGE_CATEGORY[thunder] = "^wpeframework.* ^rdkservices.* ^thunder.*"
-PACKAGE_CATEGORY[security] = "^lxy ^acscerts ^authservice.* ^ca-certificates ^caupdate ^dropbear ^ecfs-search ^ecryptfs-utils ^libcrypto ^libgcrypt ^libgpg.* ^liboauth ^libpam.* ^libseccomp ^libssl ^libwrap ^libxcrypt ^mauth-certs ^nettle ^openssl.* ^pam.* ^rdk-ca-store ^rdkxpkiutl ^samhain ^secapi.* ^secauthn ^secclient ^secure-tee ^shadow.* ^sslcerts ^tee-supplicant ^trower-base64 ^optee.* ^xsign ^socprov.* ^apparmor ^mtsdownloader ^ssacpc"
+PACKAGE_CATEGORY[security] = "^lxy ^acscerts ^authservice.* ^ca-certificates ^caupdate ^dropbear ^ecfs-search ^ecryptfs-utils ^libcrypto ^libgcrypt ^libgpg.* ^liboauth ^libpam.* ^libseccomp ^libssl ^libwrap ^libxcrypt ^nettle ^openssl.* ^pam.* ^rdk-ca-store ^rdkxpkiutl ^samhain ^secapi.* ^secauthn ^secclient ^secure-tee ^shadow.* ^sslcerts ^tee-supplicant ^trower-base64 ^optee.* ^xsign ^socprov.* ^apparmor ^mtsdownloader ^ssacpc"
 PACKAGE_CATEGORY[webserver] = "^civetweb ^libnghttp2 ^libsoup.* ^lighttpd.* ^mongoose ^nghttp2.* ^fcgi ^spawn-fcgi"
 
