@@ -1,6 +1,6 @@
 SUMMARY = "Generate a information to build logrotate data configuration for the recipe"
 
-python do_write_metadata_logrotate() {
+fakeroot python do_write_metadata_logrotate() {
 
     import os
     log_path = "/opt/logs"
