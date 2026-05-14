@@ -15,7 +15,7 @@ override_apparmor_generic_defaults() {
     VENDOR_AA_DEFAULTS="${R}/etc/apparmor.d/vendor/apparmor_vendor_defaults"
 
     if [ -f "${VENDOR_AA_DEFAULTS}" ]; then
-        bbnote "Overriding apparmor_generic_defaults with vendor apparmor_defaults"
+        bbnote "Overriding apparmor_generic_defaults with apparmor_vendor_defaults"
 
         install -d "$(dirname "${GENERIC_AA_DEFAULTS}")"
         cp -f "${VENDOR_AA_DEFAULTS}" "${GENERIC_AA_DEFAULTS}"
