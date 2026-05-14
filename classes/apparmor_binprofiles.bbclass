@@ -11,7 +11,7 @@ DEPENDS:append = " apparmor-native "
 ROOTFS_POSTPROCESS_COMMAND:append = " override_apparmor_generic_defaults; execute_aa_compile_std_profiles;"
 
 override_apparmor_generic_defaults() {
-   if [ -z "${IMAGE_ROOTFS}" ] || [ ! -d "${IMAGE_ROOTFS}" ]; then
+    if [ -z "${IMAGE_ROOTFS}" ] || [ ! -d "${IMAGE_ROOTFS}" ]; then
         bbfatal "override_apparmor_generic_defaults requires IMAGE_ROOTFS to be set to a valid rootfs directory"
     fi
     GENERIC_AA_DEFAULTS="${IMAGE_ROOTFS}/etc/apparmor/apparmor_generic_defaults"
