@@ -11,11 +11,13 @@ DEPENDS:append = " apparmor-native "
 ROOTFS_POSTPROCESS_COMMAND:append = " override_apparmor_generic_defaults; execute_aa_compile_std_profiles;"
 
 override_apparmor_generic_defaults() {
-    GENERIC_AA_DEFAULTS="${IMAGE_ROOTFS}/etc/apparmor/apparmor_generic_defaults"
-    VENDOR_AA_DEFAULTS="${IMAGE_ROOTFS}/etc/apparmor.d/vendor/apparmor_vendor_defaults"
+    GENERIC_AA_DEFAULTS="${R}/etc/apparmor/apparmor_generic_defaults"
+    VENDOR_AA_DEFAULTS="${R}/etc/apparmor.d/vendor/apparmor_vendor_defaults"
 
     if [ -f "${VENDOR_AA_DEFAULTS}" ]; then
         bbnote "Overriding apparmor_generic_defaults with vendor apparmor_defaults"
+
+        install -d "$(dirname "${GENERIC_AA_DEFAULTS}")"
         cp -f "${VENDOR_AA_DEFAULTS}" "${GENERIC_AA_DEFAULTS}"
     fi
 }
