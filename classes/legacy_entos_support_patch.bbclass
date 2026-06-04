@@ -7,7 +7,7 @@
 
 ROOTFS_POSTPROCESS_COMMAND += ' legacy_entos_support; '
 
-legacy_entos_support_patch(){
+legacy_entos_support(){
     if [ -f "${IMAGE_ROOTFS}${sysconfdir}/common.properties" ]; then
         bbnote "common.properties file from Vendor Layer in rootfs"
         rm -f ${IMAGE_ROOTFS}${sysconfdir}/common-generic.properties
