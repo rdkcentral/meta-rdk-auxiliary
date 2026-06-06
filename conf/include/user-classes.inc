@@ -9,3 +9,5 @@ USER_CLASSES:append = " generate-build-datastore "
 
 # Enable the ability to configure tag names in SRCREV
 USER_CLASSES:append = " tag_to_sha_converter"
+
+USER_CLASSES:append = " recipes_info"
