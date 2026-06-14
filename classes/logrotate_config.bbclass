@@ -1,12 +1,13 @@
 SUMMARY = "Generate a information to build logrotate data configuration for the recipe"
 
-python do_write_metadata_logrotate() {
+fakeroot python do_write_metadata_logrotate() {
 
     import os
     log_path = "/opt/logs"
     metadata_dir = d.expand('${D}${sysconfdir}')  + "/logrotate/"
     if not os.path.exists(metadata_dir):
-        os.makedirs(metadata_dir)
+        bb.utils.mkdirhier(directory)
+        os.chown(directory, 0, 0)
     if d.getVar('LOGROTATE_NAME', True) != None:
         name_list = d.getVar('LOGROTATE_NAME', True).split()
         for fname in name_list:
