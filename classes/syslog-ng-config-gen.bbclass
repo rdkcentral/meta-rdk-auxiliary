@@ -8,8 +8,8 @@ fakeroot python do_write_metadata_syslog_ng() {
     config_file = metadata_dir + d.getVar('PN', True) + ".metadata"
     filter_file = filter_dir + d.getVar('PN', True) + ".filter"
     if not os.path.exists(metadata_dir):
-        bb.utils.mkdirhier(directory)
-        os.chown(directory, 0, 0)
+        bb.utils.mkdirhier(metadata_dir)
+        os.chown(metadata_dir, 0, 0)
     if not os.path.exists(filter_dir):
         os.makedirs(filter_dir)
     if d.getVar('SYSLOG-NG_FILTER', True) != None:
