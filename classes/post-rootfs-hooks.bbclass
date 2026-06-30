@@ -93,7 +93,8 @@ disable_agetty() {
 
 # Required for NetworkManager
 create_NM_link() {
-    touch ${R}/etc/resolv.conf
+    # wrynose-178: touch on dangling symlink fails in pseudo; remove first
+    rm -f ${R}/etc/resolv.conf
     echo "nameserver 127.0.0.1" > ${R}/etc/resolv.conf
     echo "options timeout:1" >> ${R}/etc/resolv.conf
     echo "options attempts:2" >> ${R}/etc/resolv.conf

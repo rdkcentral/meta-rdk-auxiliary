@@ -51,11 +51,22 @@ python do_write_metadata_logrotate() {
                     memconf.write("}\n")
                     conf.close()
                     memconf.close()
+    # wrynose: with fakeroot, os.chown is intercepted by pseudo - fix uid for dirs/files
+    # created by makedirs/open (which bypass pseudo's uid remapping)
+    lr_base = d.expand('${D}${sysconfdir}') + "/logrotate"
+    for dirpath, dirnames, filenames in os.walk(lr_base):
+        os.chown(dirpath, 0, 0)
+        for fname in filenames:
+            os.chown(os.path.join(dirpath, fname), 0, 0)
+
 }
 
 python() {
     if bb.utils.contains('DISTRO_FEATURES', 'systemd', True, False, d):
         bb.build.addtask("write_metadata_logrotate", "do_package", "do_install", d)
+        # wrynose: run under pseudo so file/dir ownership is recorded as root:root
+        d.setVarFlag('do_write_metadata_logrotate', 'fakeroot', '1')
+        d.appendVarFlag('do_write_metadata_logrotate', 'depends', ' virtual/fakeroot-native:do_populate_sysroot')
 }
 
 FILES:${PN} += "${@bb.utils.contains('DISTRO_FEATURES','systemd',' ${sysconfdir}/* ','',d)}"

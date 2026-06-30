@@ -39,6 +39,14 @@ python do_write_metadata_syslog_ng() {
                             conf.write("SYSLOG-NG_LOGRATE_%s = %s\n" % (filter,logging))
                 conf.close()
             filterfile.close()
+    # wrynose: with fakeroot, os.chown is intercepted by pseudo - fix uid for dirs/files
+    # created by makedirs/open (which bypass pseudo's uid remapping)
+    sng_base = d.expand('${D}${sysconfdir}') + "/syslog-ng"
+    for dirpath, dirnames, filenames in os.walk(sng_base):
+        os.chown(dirpath, 0, 0)
+        for fname in filenames:
+            os.chown(os.path.join(dirpath, fname), 0, 0)
+
 
 }
 
@@ -46,6 +54,9 @@ python do_write_metadata_syslog_ng() {
 python() {
     if bb.utils.contains('DISTRO_FEATURES', 'syslog-ng', True, False, d):
         bb.build.addtask("write_metadata_syslog_ng", "do_package", "do_install", d)
+        # wrynose: run under pseudo so file/dir ownership is recorded as root:root
+        d.setVarFlag('do_write_metadata_syslog_ng', 'fakeroot', '1')
+        d.appendVarFlag('do_write_metadata_syslog_ng', 'depends', ' virtual/fakeroot-native:do_populate_sysroot')
 }
 
 FILES:${PN} += "${@bb.utils.contains('DISTRO_FEATURES','syslog-ng',' ${sysconfdir}/syslog-ng/* ','',d)}" 
