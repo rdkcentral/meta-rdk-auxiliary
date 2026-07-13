@@ -12,7 +12,7 @@ fakeroot python do_write_metadata_syslog_ng() {
         os.chown(metadata_dir, 0, 0)
     if not os.path.exists(filter_dir):
         bb.utils.mkdirhier(filter_dir)
-        os.chown(filter_dir, 0, 0)        
+        os.chown(filter_dir, 0, 0)
     if d.getVar('SYSLOG-NG_FILTER', True) != None:
         with open(filter_file, 'w') as filterfile:
             with open(config_file, 'w') as conf:
