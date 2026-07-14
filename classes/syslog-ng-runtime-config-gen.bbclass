@@ -66,6 +66,8 @@ python update_constants () {
         conf.write("########################\n")
         conf.write("#Template for RDK logging\n")
         conf.write("template-function t_rdk \"${S_YEAR}-${S_MONTH}-${S_DAY}T${S_HOUR}:${S_MIN}:${S_SEC}.${S_MSEC}Z ${MSGHDR} ${MSG}\";\n")
+        conf.write("#Template with monotonic timestamp, boot id and UTC wall-clock timestamp\n")
+        conf.write("template-function t_unified \"boot_id=${.SDATA.journald._BOOT_ID} monotonic_us=${.SDATA.journald.__MONOTONIC_TIMESTAMP} ${S_YEAR}-${S_MONTH}-${S_DAY}T${S_HOUR}:${S_MIN}:${S_SEC}.${S_MSEC}Z ${MSGHDR} ${MSG}\";\n")
         conf.write("#Template to print only MESSAGE\n")
         conf.write("template-function t_files \"${MSGHDR} ${MSG}\";\n")
         conf.close()
@@ -160,8 +162,10 @@ python update_destination() {
                             metadata.close()
                             continue
                         destination_statement = "destination d_" + line + " { file(\"`log_path`/" + destination_filter_list[0].rsplit("=", 1)[1].strip() + "\" template(\"$(t_rdk)\\n\"));};"
+                        destination_statement = "destination d_" + line + " { file(\"`log_path`/" + destination_filter_list[0].rsplit("=", 1)[1].strip() + "\" template(\"$(t_unified)\\n\"));};"
                         with open(config_file, 'a') as conf:
                             conf.write("%s\n" % (destination_statement))
+                            conf.write("destination d_fallback { file(\"`log_path`/syslog_fallback.log\" template(\"$(t_unified)\\n\"));};\n")
                             conf.close()
                         metadata.close()
             filterdata.close()
