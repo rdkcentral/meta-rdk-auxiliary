@@ -31,8 +31,8 @@ def extract_layer_versions_from_file(d, file_path):
     return versions
 
 def filter_prefix(d, uri):
-    prefix = d.getVar("RDK_ARTIFACTS_BASE_URL", True) or ""
-    if uri.startswith(prefix):
+    prefix = (d.getVar("RDK_ARTIFACTS_BASE_URL", True) or "").rstrip("/")
+    if prefix and (uri == prefix or uri.startswith(prefix + "/")):
         return uri[len(prefix):]
     return uri
 
