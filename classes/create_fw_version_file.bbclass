@@ -33,7 +33,8 @@ def extract_layer_versions_from_file(d, file_path):
 def filter_prefix(d, uri):
     prefix = (d.getVar("RDK_ARTIFACTS_BASE_URL", True) or "").rstrip("/")
     if prefix and (uri == prefix or uri.startswith(prefix + "/")):
-        return uri[len(prefix):]
+        stripped = uri[len(prefix):] or "/"
+        return stripped
     return uri
 
 def get_ipk_feed_uris(d):
