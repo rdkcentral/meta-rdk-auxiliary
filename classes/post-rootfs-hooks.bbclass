@@ -93,11 +93,17 @@ disable_agetty() {
 
 # Required for NetworkManager
 create_NM_link() {
-    touch ${R}/etc/resolv.conf
-    echo "nameserver 127.0.0.1" > ${R}/etc/resolv.conf
-    echo "options timeout:1" >> ${R}/etc/resolv.conf
-    echo "options attempts:2" >> ${R}/etc/resolv.conf
-    ln -sf /var/run/NetworkManager/no-stub-resolv.conf ${R}/etc/resolv.dnsmasq
+    install -d ${R}/etc
+    rm -f ${R}/etc/resolv.conf
+
+    cat > ${R}/etc/resolv.conf << EOF
+nameserver 127.0.0.1
+options timeout:1
+options attempts:2
+EOF
+
+    ln -snf /var/run/NetworkManager/no-stub-resolv.conf \
+        ${R}/etc/resolv.dnsmasq
 }
 
 remove_hvec_asset(){
