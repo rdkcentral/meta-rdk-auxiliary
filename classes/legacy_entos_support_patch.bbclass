@@ -35,5 +35,6 @@ legacy_entos_support(){
         bbnote "Installing init-zram.sh file from Middleware Layer"
         if [ -f "${IMAGE_ROOTFS}/lib/rdk/init-zram_generic.sh" ]; then
             mv ${IMAGE_ROOTFS}/lib/rdk/init-zram_generic.sh ${IMAGE_ROOTFS}/lib/rdk/init-zram.sh
+        fi
     fi    
 }
