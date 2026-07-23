@@ -13,7 +13,9 @@ legacy_entos_support(){
         rm -f ${IMAGE_ROOTFS}${sysconfdir}/common-generic.properties
     else
         bbnote "Installing common.properties file from Middleware Layer"
-        mv ${IMAGE_ROOTFS}/${sysconfdir}/common-generic.properties ${IMAGE_ROOTFS}/${sysconfdir}/common.properties
+        if [ -f "${IMAGE_ROOTFS}/${sysconfdir}/common-generic.properties" ]; then
+            mv ${IMAGE_ROOTFS}/${sysconfdir}/common-generic.properties ${IMAGE_ROOTFS}/${sysconfdir}/common.properties
+        fi
     fi
     
     if [ -f "${IMAGE_ROOTFS}/lib/rdk/imageFlasher.sh" ]; then
@@ -21,7 +23,9 @@ legacy_entos_support(){
         rm -f ${IMAGE_ROOTFS}/lib/rdk/imageFlasher_generic.sh
     else
         bbnote "Installing imageFlasher.sh file from Middleware Layer"
-        mv ${IMAGE_ROOTFS}/lib/rdk/imageFlasher_generic.sh ${IMAGE_ROOTFS}/lib/rdk/imageFlasher.sh
+        if [ -f "${IMAGE_ROOTFS}/lib/rdk/imageFlasher_generic.sh" ]; then
+            mv ${IMAGE_ROOTFS}/lib/rdk/imageFlasher_generic.sh ${IMAGE_ROOTFS}/lib/rdk/imageFlasher.sh
+        fi
     fi
 
     if [ -f "${IMAGE_ROOTFS}/lib/rdk/init-zram.sh" ]; then
@@ -29,6 +33,8 @@ legacy_entos_support(){
         rm -f ${IMAGE_ROOTFS}/lib/rdk/init-zram_generic.sh
     else
         bbnote "Installing init-zram.sh file from Middleware Layer"
-        mv ${IMAGE_ROOTFS}/lib/rdk/init-zram_generic.sh ${IMAGE_ROOTFS}/lib/rdk/init-zram.sh
+        if [ -f "${IMAGE_ROOTFS}/lib/rdk/init-zram_generic.sh" ]; then
+            mv ${IMAGE_ROOTFS}/lib/rdk/init-zram_generic.sh ${IMAGE_ROOTFS}/lib/rdk/init-zram.sh
+        fi
     fi    
 }
