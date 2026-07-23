@@ -53,6 +53,8 @@ python do_write_metadata_logrotate() {
                     memconf.close()
 }
 
+do_write_metadata_logrotate[fakeroot] = "1"
+
 python() {
     if bb.utils.contains('DISTRO_FEATURES', 'systemd', True, False, d):
         bb.build.addtask("write_metadata_logrotate", "do_package", "do_install", d)

@@ -93,7 +93,11 @@ disable_agetty() {
 
 # Required for NetworkManager
 create_NM_link() {
-    touch ${R}/etc/resolv.conf
+    # In OE6/wrynose, systemd installs /etc/resolv.conf as a symlink to
+    # /etc/resolv-conf.systemd -> ../run/systemd/resolve/resolv.conf.
+    # touch on a dangling symlink fails with "Permission denied" in pseudo.
+    # Remove any existing symlink so the echo below creates a real file.
+    rm -f ${R}/etc/resolv.conf
     echo "nameserver 127.0.0.1" > ${R}/etc/resolv.conf
     echo "options timeout:1" >> ${R}/etc/resolv.conf
     echo "options attempts:2" >> ${R}/etc/resolv.conf
