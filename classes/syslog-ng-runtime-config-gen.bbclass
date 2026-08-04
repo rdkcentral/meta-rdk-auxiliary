@@ -65,7 +65,7 @@ python update_constants () {
         conf.write("# Templates\n")
         conf.write("########################\n")
         conf.write("#Template for RDK logging\n")
-        conf.write("template-function t_rdk \"mono_us=${.SDATA.journald.__MONOTONIC_TIMESTAMP} ${ISODATE} ${MSGHDR}${MSG}\";\n")
+        conf.write("template-function t_rdk \"${.SDATA.journald.__MONOTONIC_TIMESTAMP} ${ISODATE} ${MSGHDR}${MSG}\";\n")
         conf.write("#Template to print only MESSAGE\n")
         conf.write("template-function t_files \"${MSGHDR} ${MSG}\";\n")
         conf.close()
