@@ -1,6 +1,6 @@
 SUMMARY = "Generate a meta information of syslog-ng configuration details for the recipe"
 
-python do_write_metadata_syslog_ng() {
+fakeroot python do_write_metadata_syslog_ng() {
 
     import os
     metadata_dir = d.expand('${D}${sysconfdir}')  + "/syslog-ng/metadata/"
@@ -8,9 +8,11 @@ python do_write_metadata_syslog_ng() {
     config_file = metadata_dir + d.getVar('PN', True) + ".metadata"
     filter_file = filter_dir + d.getVar('PN', True) + ".filter"
     if not os.path.exists(metadata_dir):
-        os.makedirs(metadata_dir)
+        bb.utils.mkdirhier(metadata_dir)
+        os.chown(metadata_dir, 0, 0)
     if not os.path.exists(filter_dir):
-        os.makedirs(filter_dir)
+        bb.utils.mkdirhier(filter_dir)
+        os.chown(filter_dir, 0, 0)
     if d.getVar('SYSLOG-NG_FILTER', True) != None:
         with open(filter_file, 'w') as filterfile:
             with open(config_file, 'w') as conf:
