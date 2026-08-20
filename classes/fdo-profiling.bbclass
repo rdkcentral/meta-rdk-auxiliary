@@ -14,6 +14,7 @@ FDO_PROFILE_MODE                     ??= ""
 FDO_PROFILE_LOCAL_DIR                ??= "fdo-profiles"
 FDO_PROFILE_OUTPUT_TARGET_DIR        ??= "/opt"
 FDO_PROFILE_INPUT_NATIVE_DIR         ??= "${WORKDIR}/fdo-profiles"
+FDO_PROFILE_PGOCONTROL_DEPENDS       ??= "commonutilities"
 
 def fdo_get_flags(d, fdo_mode):
     if fdo_mode == "generate":
@@ -42,6 +43,12 @@ python () {
         d.appendVar('CFLAGS', flags)
         d.appendVar('CXXFLAGS', flags)
         d.appendVar('LDFLAGS', flags)
+
+        if fdo_mode == "generate":
+            # Build-time dependency so libpgocontrol is available in sysroot
+            d.appendVar('DEPENDS', ' %s' % d.getVar('FDO_PROFILE_PGOCONTROL_DEPENDS'))
+            # Keep global as-needed, but force-link libpgocontrol.so only for this mode
+            d.appendVar('LDFLAGS', ' -Wl,--as-needed -Wl,--no-as-needed -lpgocontrol -Wl,--as-needed')
 }
 
 python do_fdoprofile_sanity_check() {
