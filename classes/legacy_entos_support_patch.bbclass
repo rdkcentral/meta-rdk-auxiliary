@@ -8,9 +8,10 @@
 ROOTFS_POSTPROCESS_COMMAND += ' legacy_entos_support; '
 
 legacy_entos_support(){
-    if [ -f "${IMAGE_ROOTFS}${sysconfdir}/common.properties" ]; then
+    bbnote "Execute postprocess - legacy_entos_support"
+    if [ -f "${IMAGE_ROOTFS}/${sysconfdir}/common.properties" ]; then
         bbnote "common.properties file from Vendor Layer in rootfs"
-        rm -f ${IMAGE_ROOTFS}${sysconfdir}/common-generic.properties
+        rm -f ${IMAGE_ROOTFS}/${sysconfdir}/common-generic.properties
     else
         bbnote "Installing common.properties file from Middleware Layer"
         mv ${IMAGE_ROOTFS}/${sysconfdir}/common-generic.properties ${IMAGE_ROOTFS}/${sysconfdir}/common.properties
