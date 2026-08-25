@@ -4,6 +4,9 @@ IMAGE_CLASSES += "${@bb.utils.contains('DISTRO_FEATURES', 'syslog-ng', 'syslog-n
 # Update device.properties in the rootfs
 IMAGE_CLASSES += "update-device-properties"
 
+#Consume Vendor Script for the Legcay ENTOS device
+IMAGE_CLASSES += "legacy_entos_support_patch"
+
 # Enable Cloc Report
 IMAGE_CLASSES += "${@bb.utils.contains('DISTRO_FEATURES', 'ENABLE_CLOC', 'cloc-report', '', d)}"
 
