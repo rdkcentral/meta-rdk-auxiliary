@@ -7,6 +7,8 @@
 #     FDO_PROFILE_MODE = ""           → FDO disabled (default)
 #     FDO_PROFILE_MODE = "generate"   → Instrumented build (generates .gcda profiles)
 #     FDO_PROFILE_MODE = "use"        → Optimized build (consumes stored profiles)
+#     Space-separated PN list to skip FDO instrumentation
+#     FDO_PROFILE_SKIP_PN ??= ""
 #
 
 # Default Values
@@ -15,6 +17,7 @@ FDO_PROFILE_LOCAL_DIR                ??= "fdo-profiles"
 FDO_PROFILE_OUTPUT_TARGET_DIR        ??= "/opt"
 FDO_PROFILE_INPUT_NATIVE_DIR         ??= "${WORKDIR}/fdo-profiles"
 FDO_PROFILE_PGOCONTROL_DEPENDS       ??= "commonutilities"
+FDO_PROFILE_SKIP_PN                  ??= ""
 
 def fdo_get_flags(d, fdo_mode):
     if fdo_mode == "generate":
@@ -31,6 +34,13 @@ python () {
     fdo_mode = (d.getVar('FDO_PROFILE_MODE') or "").strip().lower()
     if fdo_mode not in ("", "generate", "use"):
         bb.fatal("[FDO-PROFILING]: FDO_PROFILE_MODE not set")
+
+    # Skip selected recipes/packages (PN-based)
+    pn = (d.getVar('PN') or "").strip()
+    skip_pn = set((d.getVar('FDO_PROFILE_SKIP_PN') or "").split())
+    if pn in skip_pn:
+        bb.note("[FDO-PROFILING]: Skipping FDO for PN='%s'" % pn)
+        return
 
     if fdo_mode == "use":
         prof_src_dir = d.getVar('FDO_PROFILE_LOCAL_DIR')
