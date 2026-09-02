@@ -65,9 +65,9 @@ python update_constants () {
         conf.write("# Templates\n")
         conf.write("########################\n")
         conf.write("#Template for RDK logging\n")
-        log_chrono_enabled = d.getVar('ENABLE_LOGCHRONO_TEMPLATE', True) == 'yes'
+        log_chrono_enabled = bb.utils.contains('DISTRO_FEATURES', 'logchrono', True, False, d)
         if log_chrono_enabled:
-            conf.write("template-function t_rdk \"$(substr ${.SDATA.journald._BOOT_ID} 0 8) ${.SDATA.journald.__MONOTONIC_TIMESTAMP} ${ISODATE} ${MSGHDR}${MSG}\";\n")
+            conf.write("template-function t_rdk \"$(substr ${.SDATA.journald._BOOT_ID} 0 8) ${.SDATA.journald.__MONOTONIC_TIMESTAMP} ${ISODATE} ${MSGHDR} ${MSG}\";\n")
         else:
             conf.write("template-function t_rdk \"${S_YEAR}-${S_MONTH}-${S_DAY}T${S_HOUR}:${S_MIN}:${S_SEC}.${S_MSEC}Z ${MSGHDR} ${MSG}\";\n")
         conf.write("#Template to print only MESSAGE\n")
