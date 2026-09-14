@@ -8,7 +8,7 @@ SUMMARY = "AppArmor profile compilation"
 #
 DEPENDS:append = " apparmor-native "
 
-ROOTFS_POSTPROCESS_COMMAND:append = " override_apparmor_generic_defaults; execute_aa_compile_std_profiles;"
+ROOTFS_POSTPROCESS_COMMAND:append = " override_apparmor_generic_defaults; set_apparmor_complain_mode; execute_aa_compile_std_profiles;"
 
 override_apparmor_generic_defaults() {
     if [ -z "${IMAGE_ROOTFS}" ] || [ ! -d "${IMAGE_ROOTFS}" ]; then
@@ -22,6 +22,21 @@ override_apparmor_generic_defaults() {
 
         install -d "$(dirname "${GENERIC_AA_DEFAULTS}")"
         cp -f "${VENDOR_AA_DEFAULTS}" "${GENERIC_AA_DEFAULTS}"
+    fi
+}
+
+set_apparmor_complain_mode() {
+    GENERIC_AA_DEFAULTS="${IMAGE_ROOTFS}/etc/apparmor/apparmor_generic_defaults"
+    VENDOR_AA_DEFAULTS="${IMAGE_ROOTFS}/etc/apparmor.d/vendor/apparmor_defaults"
+
+    if [ -f "${GENERIC_AA_DEFAULTS}" ]; then
+        bbnote "Changing AppArmor profiles to complain mode in apparmor_generic_defaults"
+        sed -i 's/:enforce/:complain/g' "${GENERIC_AA_DEFAULTS}"
+    fi
+
+    if [ -f "${VENDOR_AA_DEFAULTS}" ]; then
+        bbnote "Changing AppArmor profiles to complain mode in vendor apparmor_defaults"
+        sed -i 's/:enforce/:complain/g' "${VENDOR_AA_DEFAULTS}"
     fi
 }
 
