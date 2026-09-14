@@ -7,6 +7,7 @@ SUMMARY = "AppArmor profile compilation"
 # and improving load times
 #
 DEPENDS:append = " apparmor-native "
+DEPENDS:remove:wrynose = " apparmor-native "
 
 ROOTFS_POSTPROCESS_COMMAND:append = " override_apparmor_generic_defaults; execute_aa_compile_std_profiles;"
 
