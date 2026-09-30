@@ -70,7 +70,7 @@ update_device_properties() {
            merge_properties "${GENERIC_DEV_PROP_FILE}" "${MIDDLEWARE_DEV_PROP_FILE}" "${TMP_DEV_PROP_FILE}"
            mv "${TMP_DEV_PROP_FILE}" "${GENERIC_DEV_PROP_FILE}"
            bbnote "Deleting ${MIDDLEWARE_DEV_PROP} from rootfs"
-           rm -rf "${MIDDLEWARE_DEV_PROP_FILE}
+           rm -rf "${MIDDLEWARE_DEV_PROP_FILE}"
         fi
 
      # Step 2: vendor overrides the result of step 1 (highest priority)
