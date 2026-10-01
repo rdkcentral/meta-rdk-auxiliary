@@ -3,8 +3,46 @@
 # /etc/device.properties and /etc/device-middleware.properties are delivered by Middleware
 # /etc/device-vendor.properties is delivered by Vendor
 #
+# Priority order (highest wins): vendor > middleware > application/generic
+# A key is kept only once in the final file. An override with an empty
+# value (e.g. KEY=) is still a valid override and wins over the lower
+# priority layer's value.
 
 ROOTFS_POSTPROCESS_COMMAND += ' update_device_properties; '
+
+# merge_properties BASE_FILE OVERRIDE_FILE OUTPUT_FILE
+# Every key in OVERRIDE_FILE replaces the same key in BASE_FILE.
+# Keys only in BASE_FILE are kept as-is. Order of BASE_FILE is preserved,
+# new keys introduced by OVERRIDE_FILE are appended at the end.
+merge_properties() {
+    base_file="$1"
+    override_file="$2"
+    output_file="$3"
+
+    awk -F'=' '
+        FNR==NR {
+            if ($0 !~ /^[[:space:]]*(#|$)/) {
+                key = $1
+                override[key] = $0
+            }
+            next
+        }
+        {
+            if ($0 !~ /^[[:space:]]*(#|$)/ && ($1 in override)) {
+                print override[$1]
+                seen[$1] = 1
+            } else {
+                print $0
+            }
+        }
+        END {
+            for (key in override) {
+                if (!(key in seen)) print override[key]
+            }
+        }
+    ' "${override_file}" "${base_file}" > "${output_file}"
+}
+
 
 update_device_properties() {
     GENERIC_DEV_PROP="/etc/device.properties"
@@ -14,33 +52,35 @@ update_device_properties() {
     if [ -n "${IMAGE_ROOTFS}" -a -d "${IMAGE_ROOTFS}" ]; then
         echo "IMAGE_ROOTFS: ${IMAGE_ROOTFS}"
 
+        GENERIC_DEV_PROP_FILE="${IMAGE_ROOTFS}${GENERIC_DEV_PROP}"
+        MIDDLEWARE_DEV_PROP_FILE="${IMAGE_ROOTFS}${MIDDLEWARE_DEV_PROP}"
+        VENDOR_DEV_PROP_FILE="${IMAGE_ROOTFS}${VENDOR_DEV_PROP}"
+        TMP_DEV_PROP_FILE="${GENERIC_DEV_PROP_FILE}.tmp"
 
-
-        if [ -f "${IMAGE_ROOTFS}${GENERIC_DEV_PROP}" ]; then
+        if [ -f "${GENERIC_DEV_PROP_FILE}" ]; then
             bbnote "${GENERIC_DEV_PROP} found in rootfs"
-
         else
             bbnote "${GENERIC_DEV_PROP} not found in rootfs, creating it"
-            touch "${IMAGE_ROOTFS}${GENERIC_DEV_PROP}"
+            touch "${GENERIC_DEV_PROP_FILE}"
         fi
 
-        if [ -f "${IMAGE_ROOTFS}${MIDDLEWARE_DEV_PROP}" ]; then
+       # Step 1: middleware overrides application/generic
+       if [ -f "${MIDDLEWARE_DEV_PROP_FILE}" ]; then
            bbnote "Updating ${GENERIC_DEV_PROP} with ${MIDDLEWARE_DEV_PROP}"
-           echo "# ${MIDDLEWARE_DEV_PROP}" >> "${IMAGE_ROOTFS}${GENERIC_DEV_PROP}"
-           cat "${IMAGE_ROOTFS}${MIDDLEWARE_DEV_PROP}" >> "${IMAGE_ROOTFS}${GENERIC_DEV_PROP}"
+           merge_properties "${GENERIC_DEV_PROP_FILE}" "${MIDDLEWARE_DEV_PROP_FILE}" "${TMP_DEV_PROP_FILE}"
+           mv "${TMP_DEV_PROP_FILE}" "${GENERIC_DEV_PROP_FILE}"
            bbnote "Deleting ${MIDDLEWARE_DEV_PROP} from rootfs"
-           rm -rf "${IMAGE_ROOTFS}${MIDDLEWARE_DEV_PROP}"
+           rm -rf "${MIDDLEWARE_DEV_PROP_FILE}"
         fi
 
-        if [ -f "${IMAGE_ROOTFS}${VENDOR_DEV_PROP}" ]; then
-           bbnote "Updating ${GENERIC_DEV_PROP} with ${VENDOR_DEV_PROP}"
-           echo "# ${VENDOR_DEV_PROP}" >> "${IMAGE_ROOTFS}${GENERIC_DEV_PROP}"
-           cat "${IMAGE_ROOTFS}${VENDOR_DEV_PROP}" >> "${IMAGE_ROOTFS}${GENERIC_DEV_PROP}"
-           bbnote "Deleting ${VENDOR_DEV_PROP} from rootfs"
-           rm -rf "${IMAGE_ROOTFS}${VENDOR_DEV_PROP}"
+     # Step 2: vendor overrides the result of step 1 (highest priority)
+        if [ -f "${VENDOR_DEV_PROP_FILE}" ]; then
+            bbnote "Updating ${GENERIC_DEV_PROP} with ${VENDOR_DEV_PROP}"
+            merge_properties "${GENERIC_DEV_PROP_FILE}" "${VENDOR_DEV_PROP_FILE}" "${TMP_DEV_PROP_FILE}"
+            mv "${TMP_DEV_PROP_FILE}" "${GENERIC_DEV_PROP_FILE}"
+            bbnote "Deleting ${VENDOR_DEV_PROP} from rootfs"
+            rm -rf "${VENDOR_DEV_PROP_FILE}"
         fi
-
-
 
     else
         bbnote "IMAGE_ROOTFS not found"
