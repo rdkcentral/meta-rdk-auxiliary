@@ -19,30 +19,38 @@ merge_properties() {
     override_file="$2"
     output_file="$3"
 
+    # an override with no records would make FNR==NR true for the base, so let's sort this out here
+    if [ ! -s "${override_file}" ]; then
+        cp "${base_file}" "${output_file}"
+        return
+    fi
+
     awk -F'=' '
+        function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
         FNR==NR {
             if ($0 !~ /^[[:space:]]*(#|$)/) {
-                key = $1
+                key = trim($1)
+                if (!(key in override)) order[++n] = key
                 override[key] = $0
             }
             next
         }
         {
-            if ($0 !~ /^[[:space:]]*(#|$)/ && ($1 in override)) {
-                print override[$1]
-                seen[$1] = 1
-            } else {
-                print $0
+            if ($0 !~ /^[[:space:]]*(#|$)/) {
+                key = trim($1)
+                if (key in done) next
+                done[key] = 1
+                print (key in override) ? override[key] : $0
+                next
             }
+            print $0
         }
         END {
-            for (key in override) {
-                if (!(key in seen)) print override[key]
-            }
+            for (i = 1; i <= n; i++)
+                if (!(order[i] in done)) print override[order[i]]
         }
     ' "${override_file}" "${base_file}" > "${output_file}"
 }
-
 
 update_device_properties() {
     GENERIC_DEV_PROP="/etc/device.properties"
