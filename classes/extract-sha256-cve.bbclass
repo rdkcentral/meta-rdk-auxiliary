@@ -34,6 +34,15 @@ python () {
             "extract-sha256-cve: cve-check not enabled, skipping"
         )
         return
+
+    # The checksum include is shared by all multilib variants.  Fetching and
+    # rewriting it while a lib32 datastore is being reparsed changes the
+    # basehash of image tasks.  Generate it from the primary datastore only;
+    # multilib variants consume the resulting include.
+    if d.getVar("MLPREFIX"):
+        bb.debug(1, "extract-sha256-cve: multilib datastore, skipping generation")
+        return
+
     topdir = d.getVar("TOPDIR")
     # Run this block only once per cooker/build directory.
     sentinel = os.path.join(
@@ -41,7 +50,16 @@ python () {
         "conf",
         ".extract_sha256_cve_done"
     )
- 
+
+    #
+    # Dynamic include file
+    #
+    inc_file = os.path.join(
+        topdir,
+        "conf",
+        "dynamic_sha.inc"
+    )
+
     if os.path.exists(sentinel):
         bb.debug(
             1,
@@ -61,15 +79,6 @@ python () {
             "nothing to do"
         )
         return
- 
-    #
-    # Dynamic include file
-    #
-    inc_file = os.path.join(
-        topdir,
-        "conf",
-        "dynamic_sha.inc"
-    )
  
     bb.note(
         "extract-sha256-cve: generating CVE feed SHA256 checksums -> %s"
