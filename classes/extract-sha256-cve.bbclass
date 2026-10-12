@@ -35,38 +35,43 @@ python () {
         )
         return
 
-    # The checksum include is shared by all multilib variants.  Fetching and
-    # rewriting it while a lib32 datastore is being reparsed changes the
-    # basehash of image tasks.  Generate it from the primary datastore only;
-    # multilib variants consume the resulting include.
-    if d.getVar("MLPREFIX"):
-        bb.debug(1, "extract-sha256-cve: multilib datastore, skipping generation")
-        return
-
+    
     topdir = d.getVar("TOPDIR")
-    # Run this block only once per cooker/build directory.
     sentinel = os.path.join(
         topdir,
         "conf",
         ".extract_sha256_cve_done"
     )
-
-    #
-    # Dynamic include file
-    #
     inc_file = os.path.join(
         topdir,
         "conf",
         "dynamic_sha.inc"
     )
 
+    # Multilib datastores never generate or modify checksum metadata.
+    if d.getVar("MLPREFIX"):
+        bb.debug(
+            1,
+            "extract-sha256-cve: multilib datastore, skipping generation"
+        )
+        return
+
+    # If checksum metadata already exists, keep it unchanged.
+    if os.path.isfile(inc_file):
+        bb.debug(
+            1,
+            "extract-sha256-cve: dynamic_sha.inc already exists, skipping generation"
+        )
+        return
+
+    # Prevent another primary datastore parse from regenerating it.
     if os.path.exists(sentinel):
         bb.debug(
             1,
-            "extract-sha256-cve: sentinel present, skipping regeneration"
+            "extract-sha256-cve: sentinel present, skipping generation"
         )
         return
- 
+
     #
     # Get CVE feed path
     #
@@ -88,8 +93,8 @@ python () {
     #
     # Remove stale include file before generating fresh values
     #
-    if os.path.exists(inc_file):
-        os.remove(inc_file)
+    #if os.path.exists(inc_file):
+    #    os.remove(inc_file)
  
     def get_sha256_from_artifact(url):
  
