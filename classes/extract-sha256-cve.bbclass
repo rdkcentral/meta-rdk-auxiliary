@@ -18,9 +18,9 @@
 # or
 #   INHERIT += "extract-sha256-cve"  (in local.conf)
 #
-# The class is guarded by a per-build sentinel so the network fetch
-# runs only once even when multiple recipes share the same cooker
-# process.
+# The generated include is shared by all variants in the cooker. The network
+# fetch runs only when the include does not exist; subsequent parses load the
+# same values into their datastores.
 
 python () {
     import os
@@ -35,11 +35,21 @@ python () {
         return
 
     topdir = d.getVar('TOPDIR')
-    sentinel = os.path.join(topdir, 'conf', '.extract_sha256_cve_done')
+    inc_file = os.path.join(topdir, 'conf', 'dynamic_sha.inc')
 
-    # Run only once per cooker session
-    if os.path.exists(sentinel):
-        bb.debug(1, "extract-sha256-cve: sentinel present, skipping regeneration")
+    def load_dynamic_sha():
+        if not os.path.exists(inc_file):
+            return False
+        with open(inc_file, 'r') as sha_file:
+            for line in sha_file:
+                match = re.match(r'\s*([A-Za-z0-9_:+.-]+)\s*=\s*"([^"]+)"', line)
+                if match:
+                    d.setVar(match.group(1), match.group(2))
+        return True
+
+    # Reuse the same values for normal and multilib variants.
+    if load_dynamic_sha():
+        bb.debug(1, "extract-sha256-cve: reusing dynamic_sha.inc")
         return
 
     cve_layer_feed_path = d.getVar('CVE_LAYER_FEED_PATH') or ''
@@ -47,13 +57,9 @@ python () {
         bb.debug(1, "extract-sha256-cve: CVE_LAYER_FEED_PATH is not set, nothing to do")
         return
 
-    inc_file = os.path.join(topdir, 'conf', 'dynamic_sha.inc')
-
     bb.note("extract-sha256-cve: generating CVE feed SHA256 checksums -> %s" % inc_file)
 
-    # Remove any stale inc file before writing fresh values
-    if os.path.exists(inc_file):
-        os.remove(inc_file)
+    generated_values = []
 
     for entry in cve_layer_feed_path.split():
         entry = entry.strip()
@@ -110,16 +116,15 @@ python () {
                     % (var_name, url))
             continue
 
-        # Write  VAR = "SHA"  to the dynamic include file
-        with open(inc_file, 'a') as f:
-            f.write('%s = "%s"\n' % (var_name, sha))
+        generated_values.append('%s = "%s"\n' % (var_name, sha))
 
         # Also set the value in the current datastore for immediate use
         d.setVar(var_name, sha)
 
         bb.debug(1, "extract-sha256-cve: %s = %s" % (var_name, sha))
 
-    # Write sentinel so subsequent recipe parses skip this block
-    with open(sentinel, 'w') as f:
-        f.write('')
+    temporary_file = inc_file + '.tmp'
+    with open(temporary_file, 'w') as sha_file:
+        sha_file.writelines(generated_values)
+    os.replace(temporary_file, inc_file)
 }
