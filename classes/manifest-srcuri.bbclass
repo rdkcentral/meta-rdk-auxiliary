@@ -126,7 +126,8 @@ def _srcrev_from_version(ver):
 # with the enriched 6-column version.
 # ---------------------------------------------------------------------------
 
-ROOTFS_POSTUNINSTALL_COMMAND:append = " manifest_srcuri_enrich ; "
+#ROOTFS_POSTUNINSTALL_COMMAND:append = " manifest_srcuri_enrich ; "
+do_rootfs[postfuncs] += " manifest_srcuri_enrich"
 
 python manifest_srcuri_enrich() {
     import os
