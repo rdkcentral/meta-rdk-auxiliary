@@ -24,6 +24,7 @@
 
 python () {
     import os
+    import hashlib
     import re
     import urllib.request
     import urllib.parse
@@ -36,15 +37,24 @@ python () {
 
     topdir = d.getVar('TOPDIR')
     inc_file = os.path.join(topdir, 'conf', 'dynamic_sha.inc')
+    cve_layer_feed_path = d.getVar('CVE_LAYER_FEED_PATH') or ''
+    if not cve_layer_feed_path.strip():
+        bb.debug(1, "extract-sha256-cve: CVE_LAYER_FEED_PATH is not set, nothing to do")
+        return
+
+    feed_fingerprint = hashlib.sha256(cve_layer_feed_path.encode()).hexdigest()
 
     def load_dynamic_sha():
         if not os.path.exists(inc_file):
             return False
         with open(inc_file, 'r') as sha_file:
-            for line in sha_file:
-                match = re.match(r'\s*([A-Za-z0-9_:+.-]+)\s*=\s*"([^"]+)"', line)
-                if match:
-                    d.setVar(match.group(1), match.group(2))
+            lines = sha_file.readlines()
+        if not lines or lines[0].strip() != '# feed-path-sha256: %s' % feed_fingerprint:
+            return False
+        for line in lines[1:]:
+            match = re.match(r'\s*([A-Za-z0-9_:+.-]+)\s*=\s*"([^"]+)"', line)
+            if match:
+                d.setVar(match.group(1), match.group(2))
         return True
 
     # Reuse the same values for normal and multilib variants.
@@ -52,14 +62,9 @@ python () {
         bb.debug(1, "extract-sha256-cve: reusing dynamic_sha.inc")
         return
 
-    cve_layer_feed_path = d.getVar('CVE_LAYER_FEED_PATH') or ''
-    if not cve_layer_feed_path.strip():
-        bb.debug(1, "extract-sha256-cve: CVE_LAYER_FEED_PATH is not set, nothing to do")
-        return
-
     bb.note("extract-sha256-cve: generating CVE feed SHA256 checksums -> %s" % inc_file)
 
-    generated_values = []
+    generated_values = ['# feed-path-sha256: %s\n' % feed_fingerprint]
 
     for entry in cve_layer_feed_path.split():
         entry = entry.strip()
