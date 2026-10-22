@@ -295,11 +295,6 @@ def license_create_txt(d):
 
 #create license manifest without closed and proprietary licenses
 create_custom_license_manifest() {
-    # Test if BUILD_IMAGES_FROM_FEEDS is defined in env
-    if [ -n "${BUILD_IMAGES_FROM_FEEDS}" ]; then
-        exit 0
-    fi
-
     #Closed opensource licenses
     ClosedOpenSourceLicenses="Adobe MIT MIT-style BSD-3-Clause GFDL-1.2 GFDL-1.3"
 
