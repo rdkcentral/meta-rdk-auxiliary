@@ -295,8 +295,9 @@ def license_create_txt(d):
 
 #create license manifest without closed and proprietary licenses
 create_custom_license_manifest() {
-    # Test if BUILD_IMAGES_FROM_FEEDS is defined in env
-    if [ -n "${BUILD_IMAGES_FROM_FEEDS}" ]; then
+    # Test if BUILD_IMAGES_FROM_FEEDS is defined in env	
+    # Generate license manifests only when GENERATE_LICENSE_MANIFEST is enabled	
+    if [ -n "${BUILD_IMAGES_FROM_FEEDS}" ] && [ "${GENERATE_LICENSE_MANIFEST}" != "1" ]; then
         exit 0
     fi
 
