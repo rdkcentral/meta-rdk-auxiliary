@@ -15,9 +15,9 @@
 # Usage:
 #   inherit extract-sha256-cve   (in an image recipe or distro conf)
 #
-# The class is guarded by a per-build sentinel so the network fetch
-# runs only once even when multiple recipes share the same cooker
-# process.
+# The generated include is shared by all variants in the cooker. The network
+# fetch runs only when the include does not exist; subsequent parses load the
+# same values into their datastores.
 
 python () {
     import os
@@ -35,20 +35,23 @@ python () {
         )
         return
     topdir = d.getVar("TOPDIR")
-    # Run this block only once per cooker/build directory.
-    sentinel = os.path.join(
-        topdir,
-        "conf",
-        ".extract_sha256_cve_done"
-    )
- 
-    if os.path.exists(sentinel):
-        bb.debug(
-            1,
-            "extract-sha256-cve: sentinel present, skipping regeneration"
-        )
+    inc_file = os.path.join(topdir, "conf", "dynamic_sha.inc")
+
+    def load_dynamic_sha():
+        if not os.path.exists(inc_file):
+            return False
+        with open(inc_file, "r") as sha_file:
+            for line in sha_file:
+                match = re.match(r'\s*([A-Za-z0-9_:+.-]+)\s*=\s*"([^"]+)"', line)
+                if match:
+                    d.setVar(match.group(1), match.group(2))
+        return True
+
+    # Reuse the same values for normal and multilib variants.
+    if load_dynamic_sha():
+        bb.debug(1, "extract-sha256-cve: reusing dynamic_sha.inc")
         return
- 
+
     #
     # Get CVE feed path
     #
@@ -62,26 +65,13 @@ python () {
         )
         return
  
-    #
-    # Dynamic include file
-    #
-    inc_file = os.path.join(
-        topdir,
-        "conf",
-        "dynamic_sha.inc"
-    )
- 
     bb.note(
         "extract-sha256-cve: generating CVE feed SHA256 checksums -> %s"
         % inc_file
     )
  
-    #
-    # Remove stale include file before generating fresh values
-    #
-    if os.path.exists(inc_file):
-        os.remove(inc_file)
- 
+    generated_values = []
+
     def get_sha256_from_artifact(url):
  
         #
@@ -221,14 +211,7 @@ python () {
                 % (var_name, url)
             )
             continue
-		#
-        # Write VAR_NAME = "SHA256" to dynamic_sha.inc
-        #
-        with open(inc_file, "a") as f:
-            f.write(
-                '%s = "%s"\n'
-                % (var_name, sha)
-            )
+        generated_values.append('%s = "%s"\n' % (var_name, sha))
  
         #
         # Set the variable in the current datastore as well.
@@ -241,15 +224,8 @@ python () {
             % (var_name, sha)
         )
 
-    # Create sentinel : This prevents the block from executing again during subsequent
-    # recipe parses.
-
-    try:
-        with open(sentinel, "w") as f:
-            f.write("")
-    except Exception as exc:
-        bb.warn(
-            "extract-sha256-cve: failed to create sentinel %s: %s"
-            % (sentinel, exc)
-        )
+    temporary_file = inc_file + ".tmp"
+    with open(temporary_file, "w") as sha_file:
+        sha_file.writelines(generated_values)
+    os.replace(temporary_file, inc_file)
 }
