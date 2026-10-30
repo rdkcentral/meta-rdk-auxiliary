@@ -30,6 +30,13 @@ def extract_layer_versions_from_file(d, file_path):
 
     return versions
 
+def filter_prefix(d, uri):
+    prefix = (d.getVar("RDK_ARTIFACTS_BASE_URL", True) or "").rstrip("/")
+    if prefix and (uri == prefix or uri.startswith(prefix + "/")):
+        stripped = uri[len(prefix):] or "/"
+        return stripped
+    return uri
+
 def get_ipk_feed_uris(d):
     import re
     ipk_feed_uris = d.getVar("IPK_FEED_URIS", True) or ""
@@ -40,7 +47,7 @@ def get_ipk_feed_uris(d):
             arch_name = feed.group(1)
             arch_uri = feed.group(2)
             if not arch_uri.startswith("file:"):
-                feed_dict[arch_name] = arch_uri
+                feed_dict[arch_name] = filter_prefix(d, arch_uri)
     return feed_dict
 
 python create_version_file() {
