@@ -66,6 +66,8 @@ python update_constants () {
         conf.write("########################\n")
         conf.write("#Template for RDK logging\n")
         conf.write("template-function t_rdk \"${S_YEAR}-${S_MONTH}-${S_DAY}T${S_HOUR}:${S_MIN}:${S_SEC}.${S_MSEC}Z ${MSGHDR} ${MSG}\";\n")
+        conf.write("#Template with monotonic timestamp for messages.txt\n")
+        conf.write("template-function t_rdk_messages \"${.SDATA.journald.__MONOTONIC_TIMESTAMP} ${S_YEAR}-${S_MONTH}-${S_DAY}T${S_HOUR}:${S_MIN}:${S_SEC}.${S_MSEC}Z ${MSGHDR} ${MSG}\";\n")
         conf.write("#Template to print only MESSAGE\n")
         conf.write("template-function t_files \"${MSGHDR} ${MSG}\";\n")
         conf.close()
@@ -159,7 +161,11 @@ python update_destination() {
                         if len(destination_filter_list) == 0 or destination_filter_list[0].rsplit("=", 1)[1].strip() == "" :
                             metadata.close()
                             continue
-                        destination_statement = "destination d_" + line + " { file(\"`log_path`/" + destination_filter_list[0].rsplit("=", 1)[1].strip() + "\" template(\"$(t_rdk)\\n\"));};"
+                        destination_name = destination_filter_list[0].rsplit("=", 1)[1].strip()
+                        if destination_name == "messages.txt":
+                           destination_statement = "destination d_" + line + " { file(\"`log_path`/" + destination_name + "\" template(\"$(t_rdk_messages)\\n\"));};"
+                        else:
+                           destination_statement = "destination d_" + line + " { file(\"`log_path`/" + destination_name + "\" template(\"$(t_rdk)\\n\"));};"
                         with open(config_file, 'a') as conf:
                             conf.write("%s\n" % (destination_statement))
                             conf.close()
