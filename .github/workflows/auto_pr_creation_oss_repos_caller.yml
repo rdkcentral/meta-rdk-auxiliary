@@ -13,7 +13,7 @@ on:
 jobs:
   call_oss_auto_pr_workflow:
     # Temporary checkout; revert to develop after merge.
-    uses: rdk-e/build_tools_workflows/.github/workflows/auto_pr_creation_oss_manifests.yml@feature/oss-auto-merge
+    uses: rdkcentral/build_tools_workflows/.github/workflows/auto_pr_creation_oss_manifests.yml@feature/oss-auto-merge
     secrets:
       rdke_github_token: ${{ secrets.RDKE_GITHUB_TOKEN }}
       rdkcentral_github_token: ${{ secrets.RDKCENTRAL_GITHUB_TOKEN }}
